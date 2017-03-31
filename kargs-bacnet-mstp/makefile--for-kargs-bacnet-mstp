@@ -5,10 +5,15 @@
 ##     a shared object file to install as a library . . .
 ##
 ##
+##  COMPILE PROJECT WITH:
+##
+##     $ make -f makefile--for-kargs-bacnet-mstp
+##
 ##
 ##  REFERENCES:
 ##
-##   From Robert Mecklenburg's GNU Make book page 33:
+##   From Robert Mecklenburg's GNU Make book page 33, complicated rule
+##   to have `make` figure and generate project dependencies:
 ##
 ##      include $(subst .c,.d,$(SOURCES))
 ##
@@ -18,7 +23,36 @@
 ##      	rm -f $@.$$$$
 ##
 ##
+##  DEVELOPMENT OF THIS MAKEFILE . . .
 ##
+##    - 2017-03-31 - Errors during the build of the kargs stack shared
+##    object library give clues as to which source files need to be
+##    expressed as shared object dependencies.  These sources appear in
+##    this makefile in the object filename lists assigned to $(OBJECT_)
+##    variables.  A project makefile rule converts these .o type
+##    filenames to the .c filenames we find in the directory of this
+##    project on a local or remotely mounted file system.
+##
+##    Sometimes make variable vpath must be amended, when source files
+##    are located in a new-to-this-project path.
+##
+##    To verify the library works, a test program is compiled and run,
+##    until it runs without errors.  In summary the adding of more
+##    Kargs' stack routine calls in the test program, and getting this
+##    to work as desired, can be summed up in these steps:
+##
+##
+##      *  compile Kargs' shared object library, which this makefile describes,
+##
+##      *  install this makefile's shared object "final goal" file,
+##
+##      *  compile BACnet stub / test program until no errors no warnings appear,
+##
+##      *  run test program until no run-time errors occur,
+##
+##
+##    Be sure $(LD_LIBRARY_PATH) set to include path to shared object
+##    library!  - TMH
 ##
 ##
 ##
@@ -53,12 +87,60 @@ export MINOR_2=$(KARGS_BACNET_RELEASE__MINOR_2)
 LOCAL_KARGS_RELEASE_DIR=/home/ted/projects/bacnet/steve-karg-stack/tags/bacnet-stack-0.8.3--verbose
 
 
-CFLAGS=-I$(LOCAL_KARGS_RELEASE_DIR)/include -I$(LOCAL_KARGS_RELEASE_DIR)/test -I../include
+CFLAGS=-I$(LOCAL_KARGS_RELEASE_DIR)/include -I$(LOCAL_KARGS_RELEASE_DIR)/test -I../include \
+-I/usr/local/include/libtestlib-0p1
+
+#
+## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## 2017-03-31 NOTE:  Due to double-quoted header file includes in
+##   Kargs' project Ted needed to go and make the following symbolic
+##   links:
+##
+##
+##   *  .../bacnet-stack-0.8.3--verbose/ports/linux/bacdef.h -> ../../include/bacdef.h
+##
+##   *  .../bacnet-stack-0.8.3--verbose/ports/linux/timer.h -> timer.h -> ../../include/timer.h
+##
+##
+##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/config.h -> ../../include/config.h config.h
+##
+##   *  .../bacnet-stack-0.8.3--verbose/include/net.h -> ../ports/linux/net.h
+##
+##   *  .../bacnet-stack-0.8.3--verbose/demo/object/net.h -> ../../ports/linux/net.h
+##
+##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/txbuf.h -> ../../include/txbuf.h
+##
+##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/device.h -> ../object/device.h
+##
+##   *  .../
+##
+##
+##
+##
+##  There may be a few other symlinks Ted missed noting here, for not
+##  noting them at when first ones needed.  A review of Steve Kargs'
+##  release 0.8.3 to check for symlinks within his file and directory
+##  layout will likely show no symbolic links there.  Ted wants to find
+##  more manageable and elegant way to build a shared library of a
+##  subset of Kargs' open source BACnet work.  Manually noting symlinks
+##  and needing to create them by hand, by trial-and-error is tedious
+##  and not a good factoring or structuring of reusable code . . .  - TMH
+##
+## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#
+
+
 
 SRC_DIR=$(LOCAL_KARGS_RELEASE_DIR)/src
 
 # VPATH=$(SRC_DIR)
-vpath %.c $(LOCAL_KARGS_RELEASE_DIR)/src $(LOCAL_KARGS_RELEASE_DIR)/ports/linux $(LOCAL_KARGS_RELEASE_DIR)/test
+vpath %.c \
+$(LOCAL_KARGS_RELEASE_DIR)/src \
+$(LOCAL_KARGS_RELEASE_DIR)/ports/linux \
+$(LOCAL_KARGS_RELEASE_DIR)/test \
+$(LOCAL_KARGS_RELEASE_DIR)/demo/handler \
+$(LOCAL_KARGS_RELEASE_DIR)/demo/object
+
 vpath %.h $(LOCAL_KARGS_RELEASE_DIR)/include $(LOCAL_KARGS_RELEASE_DIR)/ports/linux $(LOCAL_KARGS_RELEASE_DIR)/test
 
 
@@ -85,8 +167,15 @@ OBJECT_FILES_FROM_SRC=bacaddr.o bacint.o crc.o debug.o fifo.o indtext.o mstp.o m
 OBJECT_FILES_FROM_PORTS_LINUX=dlmstp.o rs485.o timer.o
 OBJECT_FILES_FROM_TEST=ctest.o
 # OBJECT_FILES_FROM_MAKEFILE_DIR=extras.o
+OBJECT_FILES_FROM_DEMO_HANDLER=dlenv.o h_whois.o
+OBJECT_FILES_FROM_DEMO_OBJECT=device-client.o
 
-OBJECT_FILES_TO_CREATE=$(OBJECT_FILES_FROM_SRC) $(OBJECT_FILES_FROM_PORTS_LINUX) $(OBJECT_FILES_FROM_TEST) $(OBJECT_FILES_FROM_MAKEFILE_DIR)
+OBJECT_FILES_TO_CREATE=$(OBJECT_FILES_FROM_SRC) \
+$(OBJECT_FILES_FROM_PORTS_LINUX) \
+$(OBJECT_FILES_FROM_TEST) \
+$(OBJECT_FILES_FROM_MAKEFILE_DIR) \
+$(OBJECT_FILES_FROM_DEMO_HANDLER) \
+$(OBJECT_FILES_FROM_DEMO_OBJECT)
 
 
 SOURCES=$(subst .o,.c,$(OBJECT_FILES_TO_CREATE)) 
