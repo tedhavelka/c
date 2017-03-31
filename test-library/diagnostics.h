@@ -52,11 +52,22 @@
 
 
 
+//--------------------------------------------------------------------
+//  - SECTION - diagnostics formats
+//
+//  2017-03-16 - Some explanation of Ted's local C and C++
+//    diagnostics formats . . .
+//
+//
+//--------------------------------------------------------------------
+
 enum diagnostics_message_formats
 {
     DIAGNOSTICS__SHOW_MESSAGE_ONLY = 1,
     DIAGNOSTICS__FORMAT_MESSAGE_WITH_COLON_SEPARATOR,
-    DIAGNOSTICS__FORMAT_MESSAGE_WITH_DASH_SEPARATOR
+    DIAGNOSTICS__FORMAT_MESSAGE_WITH_DASH_SEPARATOR,
+    DIAGNOSTICS__PREPEND_CHAR_POUND_SIGN,
+    DIAGNOSTICS__PREPEND_CHAR_SEMICOLON
 };
 
 
