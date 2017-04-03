@@ -99,20 +99,37 @@ CFLAGS=-I$(LOCAL_KARGS_RELEASE_DIR)/include -I$(LOCAL_KARGS_RELEASE_DIR)/test -I
 ##
 ##   *  .../bacnet-stack-0.8.3--verbose/ports/linux/bacdef.h -> ../../include/bacdef.h
 ##
-##   *  .../bacnet-stack-0.8.3--verbose/ports/linux/timer.h -> timer.h -> ../../include/timer.h
+##   *  .../bacnet-stack-0.8.3--verbose/ports/linux/timer.h -> ../../include/timer.h   <-- THIS SYMLINK REMOVED, AND timer.h PUT BACK THIS PATH - TMH
 ##
 ##
-##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/config.h -> ../../include/config.h config.h
 ##
-##   *  .../bacnet-stack-0.8.3--verbose/include/net.h -> ../ports/linux/net.h
+##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/bacenum.h -> ../../include/bacenum.h
 ##
-##   *  .../bacnet-stack-0.8.3--verbose/demo/object/net.h -> ../../ports/linux/net.h
+##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/config.h -> ../../include/config.h
 ##
-##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/txbuf.h -> ../../include/txbuf.h
+##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/datalink.h -> ../../include/device.h
 ##
 ##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/device.h -> ../object/device.h
 ##
-##   *  .../
+##   *  .../bacnet-stack-0.8.3--verbose/demo/handler/txbuf.h -> ../../include/txbuf.h
+##
+##
+##
+##   *  .../bacnet-stack-0.8.3--verbose/demo/object/bacdef.h -> ../../include/bacdef.h
+##
+##   *  .../bacnet-stack-0.8.3--verbose/demo/object/bacenum.h -> ../../include/bacenum.h
+##
+##   *  .../bacnet-stack-0.8.3--verbose/demo/object/net.h -> ../../ports/linux/net.h
+##
+##   *  .../bacnet-stack-0.8.3--verbose/demo/object/timer.h -> ../../include/timer.h
+##
+##
+##
+##   *  .../bacnet-stack-0.8.3--verbose/demo/readprop/device.h -> ../object/device.h
+##
+##
+##
+##   *  .../bacnet-stack-0.8.3--verbose/include/net.h -> ../ports/linux/net.h
 ##
 ##
 ##
@@ -133,15 +150,25 @@ CFLAGS=-I$(LOCAL_KARGS_RELEASE_DIR)/include -I$(LOCAL_KARGS_RELEASE_DIR)/test -I
 
 SRC_DIR=$(LOCAL_KARGS_RELEASE_DIR)/src
 
+
+## Tell `make` to search these directories for prerequisite source files:
+
 # VPATH=$(SRC_DIR)
 vpath %.c \
 $(LOCAL_KARGS_RELEASE_DIR)/src \
 $(LOCAL_KARGS_RELEASE_DIR)/ports/linux \
 $(LOCAL_KARGS_RELEASE_DIR)/test \
 $(LOCAL_KARGS_RELEASE_DIR)/demo/handler \
-$(LOCAL_KARGS_RELEASE_DIR)/demo/object
+$(LOCAL_KARGS_RELEASE_DIR)/demo/object \
+$(LOCAL_KARGS_RELEASE_DIR)/demo/readprop
 
-vpath %.h $(LOCAL_KARGS_RELEASE_DIR)/include $(LOCAL_KARGS_RELEASE_DIR)/ports/linux $(LOCAL_KARGS_RELEASE_DIR)/test
+
+## Tell `make` to search these directories for prerequisite headers:
+
+vpath %.h \
+$(LOCAL_KARGS_RELEASE_DIR)/include \
+$(LOCAL_KARGS_RELEASE_DIR)/ports/linux \
+$(LOCAL_KARGS_RELEASE_DIR)/test
 
 
 
@@ -163,19 +190,23 @@ vpath %.h $(LOCAL_KARGS_RELEASE_DIR)/include $(LOCAL_KARGS_RELEASE_DIR)/ports/li
 ## - 2017-03-07 TUE - To document where sources come from in 0.8.3 Kargs' stack release:
 
 # OBJECT_FILES_FROM_SRC=crc.o indtext.o mstp.o mstptext.o ringbuf.o
-OBJECT_FILES_FROM_SRC=bacaddr.o bacint.o crc.o debug.o fifo.o indtext.o mstp.o mstptext.o npdu.o ringbuf.o
+
+OBJECT_FILES_FROM_SRC=address.o apdu.o bacaddr.o bacdcode.o bacint.o bacstr.o bip.o crc.o datetime.o debug.o fifo.o indtext.o mstp.o mstptext.o npdu.o ringbuf.o
 OBJECT_FILES_FROM_PORTS_LINUX=dlmstp.o rs485.o timer.o
 OBJECT_FILES_FROM_TEST=ctest.o
 # OBJECT_FILES_FROM_MAKEFILE_DIR=extras.o
 OBJECT_FILES_FROM_DEMO_HANDLER=dlenv.o h_whois.o
 OBJECT_FILES_FROM_DEMO_OBJECT=device-client.o
+OBJECT_FILES_FROM_DEMO_READPROP=main.o
 
-OBJECT_FILES_TO_CREATE=$(OBJECT_FILES_FROM_SRC) \
+OBJECT_FILES_TO_CREATE=\
+$(OBJECT_FILES_FROM_SRC) \
 $(OBJECT_FILES_FROM_PORTS_LINUX) \
 $(OBJECT_FILES_FROM_TEST) \
 $(OBJECT_FILES_FROM_MAKEFILE_DIR) \
 $(OBJECT_FILES_FROM_DEMO_HANDLER) \
-$(OBJECT_FILES_FROM_DEMO_OBJECT)
+$(OBJECT_FILES_FROM_DEMO_OBJECT) \
+$(OBJECT_FILES_FROM_DEMO_READPROP)
 
 
 SOURCES=$(subst .o,.c,$(OBJECT_FILES_TO_CREATE)) 
