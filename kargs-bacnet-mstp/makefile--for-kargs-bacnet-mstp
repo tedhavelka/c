@@ -191,11 +191,11 @@ $(LOCAL_KARGS_RELEASE_DIR)/test
 
 # OBJECT_FILES_FROM_SRC=crc.o indtext.o mstp.o mstptext.o ringbuf.o
 
-OBJECT_FILES_FROM_SRC=address.o apdu.o bacaddr.o bacdcode.o bacint.o bacstr.o bip.o crc.o datetime.o debug.o fifo.o indtext.o mstp.o mstptext.o npdu.o ringbuf.o
-OBJECT_FILES_FROM_PORTS_LINUX=dlmstp.o rs485.o timer.o
+OBJECT_FILES_FROM_SRC=abort.o address.o apdu.o bacaddr.o bacapp.o bacdcode.o bacdevobjpropref.o bacerror.o bacint.o bacreal.o bacstr.o bactext.o bip.o bvlc.o crc.o datetime.o dcc.o debug.o fifo.o filename.o iam.o indtext.o mstp.o mstptext.o npdu.o reject.o ringbuf.o rp.o tsm.o version.o whois.o
+OBJECT_FILES_FROM_PORTS_LINUX=bip-init.o dlmstp.o rs485.o timer.o
 OBJECT_FILES_FROM_TEST=ctest.o
 # OBJECT_FILES_FROM_MAKEFILE_DIR=extras.o
-OBJECT_FILES_FROM_DEMO_HANDLER=dlenv.o h_whois.o
+OBJECT_FILES_FROM_DEMO_HANDLER=dlenv.o h_iam.o h_npdu.o h_rp.o h_rp_a.o h_whois.o noserv.o s_iam.o s_rp.o s_whois.o txbuf.o
 OBJECT_FILES_FROM_DEMO_OBJECT=device-client.o
 OBJECT_FILES_FROM_DEMO_READPROP=main.o
 

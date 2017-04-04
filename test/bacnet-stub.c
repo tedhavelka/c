@@ -70,7 +70,11 @@
 
 #include <device.h>       // provides routine Device_Init(),
 
-#include <handlers.h>     // provides routine handler_who_is(),
+#include <handlers.h>     // provides routine handler_who_is(), NOTE - SHOULD ALSO PROVIDE handler_i_am_bind() . . .  - TMH
+
+// 2017-04-04 TUE - added by Ted:
+
+#include <bactext.h>     // provides routine . . .
 
 
 
@@ -102,13 +106,22 @@
 // declared within routine main() . . .
 
 static volatile struct mstp_port_struct_t MSTP_Port;
+
 /* buffers needed by mstp port struct */
 static uint8_t RxBuffer[MAX_MPDU];
 static uint8_t TxBuffer[MAX_MPDU];
+
 /* method to tell main loop to exit from CTRL-C or other signals */
 static volatile bool Exit_Requested;
 
 
+// 2017-04-04 - Needed and copied from Kargs' ~0.8.3/demo/readprop/main.c source file:
+
+static BACNET_ADDRESS Target_Address;
+
+static uint8_t Request_Invoke_ID = 0;
+
+static bool Error_Detected = false;
 
 
 
@@ -116,22 +129,50 @@ static volatile bool Exit_Requested;
 // - SECTION - function prototypes
 //----------------------------------------------------------------------
 
+void MyAbortHandler(    // <-- function prototype, function defined in Kargs' ~0.8.3/demo/readprop/main.c - TMH
+  BACNET_ADDRESS * src,
+  uint8_t invoke_id,
+  uint8_t abort_reason,
+  bool server
+);
 
 
-// 2017-03-01 - NEED TO:  try commenting this out:
+// 2017-04-03 - NEED to copy static routine MyErrorHandler() from readprop/main.c - TMH
+//
+// 2017-04-04 - Copied, but new compile-time errors now appear.
+//  Compiler complains that Target_Address and Request_Invoke_ID are
+//  not declared.  Also some warnings about implicit function
+//  declarations . . .
+//
+//
 
-// extern void RS485_Send_Frame(
-//     volatile struct mstp_port_struct_t *mstp_port,      /* port specific data */
-//     uint8_t * buffer,   /* frame to send (up to 501 bytes of data) */
-//     uint16_t nbytes
-// );
+static void MyErrorHandler(
+  BACNET_ADDRESS * src,
+  uint8_t invoke_id,
+  BACNET_ERROR_CLASS error_class,
+  BACNET_ERROR_CODE error_code)
+{
+    if (address_match(&Target_Address, src) && (invoke_id == Request_Invoke_ID))
+    {
+        printf("BACnet Error: %s: %s\r\n",
+            bactext_error_class_name((int) error_class),
+            bactext_error_code_name((int) error_code));
+        Error_Detected = true;
+    }
+}
 
 
 
-/* functions used by the MS/TP state machine to put or get data */
-/* FIXME: developer must implement these in their DLMSTP module */
+void MyRejectHandler(
+  BACNET_ADDRESS * src,
+  uint8_t invoke_id,
+  uint8_t reject_reason
+);
 
-// extern uint16_t MSTP_Put_Receive(volatile struct mstp_port_struct_t *mstp_port);
+
+
+
+
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
