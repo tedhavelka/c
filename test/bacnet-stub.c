@@ -47,6 +47,8 @@
 //   program, yet needed to compile shared object library file.  Compile
 //   that project with -pthread option to gcc - TMH 2017-03-07
 
+#include <time.h>
+
 
 
 
@@ -74,7 +76,11 @@
 
 // 2017-04-04 TUE - added by Ted:
 
-#include <bactext.h>     // provides routine . . .
+#include <bactext.h>     // provides routine ___
+
+#include <client.h>      // provides routine Send_Read_Property_Request(),
+
+#include <tsm.h>         // provides routine tsm_invoke_id_free(), tsm_invoke_id_failed() and tsm_free_invoke_id(),
 
 
 
@@ -122,6 +128,19 @@ static BACNET_ADDRESS Target_Address;
 static uint8_t Request_Invoke_ID = 0;
 
 static bool Error_Detected = false;
+
+static uint32_t Target_Device_Object_Instance = BACNET_MAX_INSTANCE;
+
+
+static uint32_t Target_Object_Instance = BACNET_MAX_INSTANCE;
+static BACNET_OBJECT_TYPE Target_Object_Type = OBJECT_ANALOG_INPUT;
+static BACNET_PROPERTY_ID Target_Object_Property = PROP_ACKED_TRANSITIONS;
+static int32_t Target_Object_Index = BACNET_ARRAY_ALL;
+
+// 2017-04-05 -
+
+static uint8_t Rx_Buf[MAX_MPDU] = { 0 };
+
 
 
 
@@ -328,13 +347,36 @@ int main(int argc, char** argv)
 
     int array_size;
 
+#define ONE_MILLION_MS (1000 * 1000)
+#define MAX_LOOP_CYCLES_TO_EXECUTE (30)
+
+    time_t time_start;
+    time_t time_present;
+    time_t time_elapsed;
+    bool time_out_not_reached = true;
+
+// Variables copied from Kargs demo program named bacrp:
+    bool found = false;
+
+    unsigned max_apdu = 0;
+
+    uint16_t pdu_len = 0;
+
+    BACNET_ADDRESS src = { 0 };  /* address where message came from */
+
+    unsigned timeout = 100;     /* milliseconds */
+
 
 // diagnostics:
 
     char lbuf[SIZE__DIAG_MESSAGE];
 
-    unsigned int dflag_announce = DIAGNOSTICS_ON;
-    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+    unsigned int dflag_announce   = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
+    unsigned int dflag_step       = DIAGNOSTICS_ON;
+    unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
+
+    unsigned int dflag_mark = DIAGNOSTICS_ON;
 
     DIAG__SET_ROUTINE_NAME("main");
 
@@ -418,14 +460,28 @@ int main(int argc, char** argv)
 // - STEP -
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+/*
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "", );
+    show_diag(rname, lbuf, dflag_verbose);
+*/
+    show_diag(rname, "- STEP 1 -", dflag_step);
+    show_diag(rname, "- Initializations found in Kargs demos `bacrp` and `bacwi` . . .", dflag_step);
+    show_diag(rname, "-", dflag_step);
+
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "calling routine to set device object instance number with number %u . . .", BACNET_MAX_INSTANCE);
+    show_diag(rname, lbuf, dflag_verbose);
     Device_Set_Object_Instance_Number(BACNET_MAX_INSTANCE);
 
+    show_diag(rname, "calling address_init() with no arguments (takes none) . . .", dflag_verbose);
     address_init();
 
+    show_diag(rname, "calling Init_Service_Handlers() with no arguments (takes none) . . .", dflag_verbose);
     Init_Service_Handlers();
 
+    show_diag(rname, "calling dlenv_init() with no arguments (takes none) . . .", dflag_verbose);
     dlenv_init();
 
+    show_diag(rname, "calling atexit() with argument 'datalink_cleanup', most likely defined as \"#define datalink_cleanup dlmstp_cleanup\" . . .", dflag_verbose);
     atexit(datalink_cleanup);
 
 
@@ -434,8 +490,180 @@ int main(int argc, char** argv)
 // - STEP -
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    show_diag(rname, "- STEP 2 -", dflag_step);
+    show_diag(rname, "- Initializations custom to BACnet test program:", dflag_step);
+    show_diag(rname, "-", dflag_step);
+
     show_diag(rname, "calling ~/ports/linux/rs485.c routine to set serial port . . .", dflag_verbose);
     RS485_Set_Interface("/dev/ttyUSB0");
+
+
+
+    show_diag(rname, "- STEP 3 -", dflag_step);
+    show_diag(rname, "- Loop and communications attempt:", dflag_step);
+    show_diag(rname, "-", dflag_step);
+
+
+// Some BACnet communications loop set ups:
+
+    time_out_not_reached = true;
+    time_start = time(NULL);
+    time_present = time(NULL);
+
+    int loop_cycles_completed = 0;
+
+
+// 2017-04-05 -
+    Target_Device_Object_Instance = 133005;
+
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "- LOOP SET UP - requesting binding of BACnet address for/of target device object instance %u . . .", 
+      Target_Device_Object_Instance);
+    show_diag(rname, lbuf, dflag_verbose);
+    found = address_bind_request(Target_Device_Object_Instance, &max_apdu, &Target_Address);
+
+    usleep(ONE_MILLION_MS);
+
+    Target_Device_Object_Instance = 133005;
+    Target_Object_Type = 8;
+    Target_Object_Instance = 133005;
+    Target_Object_Property = 76;
+
+
+    while (( time_out_not_reached ) && ( loop_cycles_completed < MAX_LOOP_CYCLES_TO_EXECUTE ))
+    {
+
+//        snprintf(lbuf, SIZE__DIAG_MESSAGE, "%s", "-  COMMUNICATIONS LOOP - NOT YET FULLY IMPLEMENTED!");
+//        show_diag(rname, lbuf, dflag_comms_loop);
+        show_diag(rname, "*", dflag_comms_loop);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "-  COMMUNICATIONS LOOP - executing now %d times,", (loop_cycles_completed + 1));
+        show_diag(rname, lbuf, dflag_comms_loop);
+
+        if ( !found )
+        {
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "- MARK 1 - requesting address binding, with parameters and values:");
+            show_diag(rname, lbuf, dflag_mark);
+
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "static global variable Target_Device_Object_Instance = %u,", Target_Device_Object_Instance);
+            show_diag(rname, lbuf, dflag_verbose);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "local variable max_apdu = %u,", max_apdu);
+            show_diag(rname, lbuf, dflag_verbose);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "static global struct BACnet_Device_Address Target_Address with data members:");
+            show_diag(rname, lbuf, dflag_verbose);
+
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Address.mac_len = %u", Target_Address.mac_len);
+            show_diag(rname, lbuf, dflag_verbose);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Address.mac[%u]", MAX_MAC_LEN);
+            show_diag(rname, lbuf, dflag_verbose);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Address.net = %u", Target_Address.net);
+            show_diag(rname, lbuf, dflag_verbose);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Address.len = %u", Target_Address.len);
+            show_diag(rname, lbuf, dflag_verbose);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Address.adr[%u]", MAX_MAC_LEN);
+            show_diag(rname, lbuf, dflag_verbose);
+
+            show_diag(rname, "calling address_bind_request() . . .", dflag_verbose);
+
+            found = address_bind_request(Target_Device_Object_Instance, &max_apdu, &Target_Address);
+
+        }
+
+//        else // if BACnet address found cached in Kargs address cache code . . .
+        {
+//            snprintf(lbuf, SIZE__DIAG_MESSAGE, "-  COMMUNICATIONS LOOP - looks like object instance %u address already bound,",
+//              Target_Device_Object_Instance);
+//            show_diag(rname, lbuf, dflag_comms_loop);
+            show_diag(rname, "though BACnet address not found cached continuing on to send 'read property request',", dflag_verbose);
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//  * * *
+//  Following code copied from Kargs open source BACnet demo program
+//  `bacwi`.  Ted placing here as development step toward a
+//  configurable BACnet master device communicator to put on
+//  local MS/TP network:
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+            if (Request_Invoke_ID == 0)
+            {
+                show_diag(rname, "- MARK 2 - calling routine Send_Read_Property_Request() with parameters and values:", dflag_mark);
+
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Device_Object_Instance = %u", Target_Device_Object_Instance);
+                show_diag(rname, lbuf, dflag_verbose);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Object_Type = %u", Target_Object_Type);
+                show_diag(rname, lbuf, dflag_verbose);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Object_Instance = %u", Target_Object_Instance);
+                show_diag(rname, lbuf, dflag_verbose);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Object_Property = %u", Target_Object_Property);
+                show_diag(rname, lbuf, dflag_verbose);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Object_Index = %u", Target_Object_Index);
+                show_diag(rname, lbuf, dflag_verbose);
+
+                Request_Invoke_ID =
+                  Send_Read_Property_Request(Target_Device_Object_Instance,
+                  Target_Object_Type, Target_Object_Instance,
+                  Target_Object_Property, Target_Object_Index);
+            }
+            else if (tsm_invoke_id_free(Request_Invoke_ID))
+            {
+                show_diag(rname, "routine tsm_invoke_id_free(Request_Invoke_ID) returned true, breaking out of loop . . .",
+                  dflag_verbose);
+                break;
+            }
+            else if (tsm_invoke_id_failed(Request_Invoke_ID))
+            {
+                show_diag(rname, "routine tsm_invoke_id_failed(Request_Invoke_ID) returned true, breaking out of loop . . .",
+                  dflag_verbose);
+
+                fprintf(stderr, "\rError: TSM Timeout!\r\n");
+                tsm_free_invoke_id(Request_Invoke_ID);
+                Error_Detected = true;
+
+                /* try again or abort? */
+                break;
+            }
+
+        }
+
+
+
+        /* returns 0 bytes on timeout */
+        show_diag(rname, "calling datalink_receive() . . .", dflag_verbose);
+        pdu_len = datalink_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
+
+        /* process */
+        if (pdu_len)
+        {
+            show_diag(rname, "calling npdu_handler() . . .", dflag_verbose);
+            npdu_handler(&src, &Rx_Buf[0], pdu_len);
+        }
+        else
+        {
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "not calling routine npdu_handler() as pdu_len holds %d,", pdu_len);
+            show_diag(rname, lbuf, dflag_verbose);
+            show_diag(rname, "meaning zero bytes received by routine datalink_receive(),", dflag_verbose);
+        }
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//  * * *
+//  END CODE from Kargs demo `bacrp`
+//  * * *
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+
+
+        time_present = time(NULL);
+
+        time_elapsed = ( time_present - time_start );
+
+        usleep(ONE_MILLION_MS);
+
+        ++loop_cycles_completed;
+    }
+
+
+
+
 
 
     show_diag(rname, "done.", dflag_announce);
