@@ -94,6 +94,8 @@ enum diagnostics_message_formats
 
 void show_diag(const char* caller, const char *message, unsigned int format);
 
+void blank_line_out(const char* caller, unsigned int number_of_blank_lines);
+
 
 
 

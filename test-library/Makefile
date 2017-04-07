@@ -2,6 +2,13 @@
 ##
 ##  FILE:  Makefile for practice C libraries work
 ##
+##
+##  REFERENCES:
+##
+##   *  http://stackoverflow.com/questions/99132/how-to-prevent-directory-already-exists-error-in-a-makefile-when-using-mkdir
+##
+##
+##
 ##======================================================================
 
 
@@ -48,9 +55,9 @@ libtestlib-$(PRACTICE_C_LIBRARY_VERSION__MAJOR_NUMBER)p$(PRACTICE_C_LIBRARY_VERS
 
 
 install:
-	sudo mkdir /usr/local/include/$(LIBRARY_NAME)
+	sudo mkdir -p /usr/local/include/$(LIBRARY_NAME)
 	sudo cp -p $(HEADERS) /usr/local/include/$(LIBRARY_NAME)
-	sudo mkdir /usr/local/lib/$(LIBRARY_NAME)
+	sudo mkdir -p /usr/local/lib/$(LIBRARY_NAME)
 	sudo cp -p $(SHARED_OBJECT_FILE) /usr/local/lib/$(LIBRARY_NAME)
 
 

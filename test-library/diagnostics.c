@@ -1,8 +1,11 @@
+//======================================================================
+//  PROJECT:  C Shared Object Type Library
 //
+//  FILE:  diagnostics.c
 //
+//  PURPOSE OF THIS FILE:  . . .
 //
-//
-//
+//======================================================================
 
 
 
@@ -63,10 +66,32 @@ void show_diag(const char* caller, const char *message, unsigned int format)
         printf("%s", lbuf);
     }
 
+} // end routine show_diag()
 
 
 
-}
+
+
+void blank_line_out(const char* caller, unsigned int number_of_blank_lines)
+{
+
+    int i;
+
+    if ( strlen(caller) == 0 )
+    {
+//    * Warn that calling code does not identify itself *
+    }
+
+    if ( number_of_blank_lines >= 1 )
+    {
+        for ( i = 0; i < number_of_blank_lines; ++i )
+        {
+            printf("\n");
+        }
+
+    }
+
+} // end routine blank_line_out()
 
 
 

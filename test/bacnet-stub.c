@@ -348,7 +348,8 @@ int main(int argc, char** argv)
     int array_size;
 
 #define ONE_MILLION_MS (1000 * 1000)
-#define MAX_LOOP_CYCLES_TO_EXECUTE (30)
+#define MILLI_SECONDS_200K (200 * 1000)
+#define MAX_LOOP_CYCLES_TO_EXECUTE (500)  // as of 2017-04-06 morning was (30) - TMH
 
     time_t time_start;
     time_t time_present;
@@ -374,11 +375,13 @@ int main(int argc, char** argv)
     unsigned int dflag_announce   = DIAGNOSTICS_ON;
     unsigned int dflag_verbose    = DIAGNOSTICS_ON;
     unsigned int dflag_step       = DIAGNOSTICS_ON;
+    unsigned int dflag_init_steps = DIAGNOSTICS_ON;
     unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
+    unsigned int dflag_target_address_summary = DIAGNOSTICS_ON;
 
     unsigned int dflag_mark = DIAGNOSTICS_ON;
 
-    DIAG__SET_ROUTINE_NAME("main");
+    DIAG__SET_ROUTINE_NAME("bacnet-stub main()");
 
 
 
@@ -390,6 +393,14 @@ int main(int argc, char** argv)
     snprintf(lbuf, SIZE__DIAG_MESSAGE, "local buffer for messages found to be %d bytes long,", array_size);
     show_diag(rname, lbuf, dflag_verbose);
 
+// 2017-04-06 THU -
+#if defined(BACDL_MSTP)
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "2017-04-06 NOTE:  Kargs project network type label 'BACDL_MSTP' is defined,");
+#else
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "2017-04-06 NOTE:  Kargs project network type label 'BACDL_MSTP' not defined!");
+#endif
+    show_diag(rname, lbuf, dflag_verbose);
+
 
     show_diag(rname, "defining a pointer variable to a structure of type mstp_port_struct_t . . .", dflag_verbose);
 
@@ -399,29 +410,8 @@ int main(int argc, char** argv)
 
 
 
-// QUESTION 2017-03-31:  why is following code commented out?  - TMH
-
-/*
-    show_diag(rname, "allocating some memory to key members of mstp_port instance:", dflag_verbose);
-    snprintf(lbuf, SIZE__DIAG_MESSAGE, "via malloc() giving %d bytes to mstp_port->InputBuffer . . .", SIZE__MSTP_INPUT_BUFFER);
-    show_diag(rname, lbuf, dflag_verbose);
-
-    mstp_port->InputBuffer = malloc(SIZE__MSTP_INPUT_BUFFER);
-
-
-    show_diag(rname, "back from call to malloc(), checking whether mstp_port->InputBuffer is not null,", dflag_verbose);
-
-    if ( mstp_port->InputBuffer != NULL )
-    {
-        show_diag(rname, "mstp_port->InputBuffer not null so calling free() on this allocated memory . . .", dflag_verbose);
-        free(mstp_port->InputBuffer);
-    }
-*/
-
-
-
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// - STEP - reusing several lines of MSTP port initializing code from 
+// - STEP - reusing several lines of MSTP port initializing code from     <-- NOTE ON 2017-04-06:  THIS STEP LIKELY CAN BE REMOVED - TMH
 //          Steve Kargs' mstpcap demo main.c source file:
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -464,23 +454,28 @@ int main(int argc, char** argv)
     snprintf(lbuf, SIZE__DIAG_MESSAGE, "", );
     show_diag(rname, lbuf, dflag_verbose);
 */
-    show_diag(rname, "- STEP 1 -", dflag_step);
-    show_diag(rname, "- Initializations found in Kargs demos `bacrp` and `bacwi` . . .", dflag_step);
-    show_diag(rname, "-", dflag_step);
+    show_diag(rname, "-", dflag_verbose);
+    show_diag(rname, "- STEP 1 - beginning initializations found in Kargs demos `bacrp` and `bacwi` . . .", dflag_verbose);
+    show_diag(rname, "-", dflag_verbose);
 
+    show_diag(rname, "- INITIALIZING STEP 1p1 -", dflag_init_steps);
     snprintf(lbuf, SIZE__DIAG_MESSAGE, "calling routine to set device object instance number with number %u . . .", BACNET_MAX_INSTANCE);
     show_diag(rname, lbuf, dflag_verbose);
     Device_Set_Object_Instance_Number(BACNET_MAX_INSTANCE);
 
+    show_diag(rname, "- INITIALIZING STEP 1p2 -", dflag_init_steps);
     show_diag(rname, "calling address_init() with no arguments (takes none) . . .", dflag_verbose);
     address_init();
 
+    show_diag(rname, "- INITIALIZING STEP 1p3 -", dflag_init_steps);
     show_diag(rname, "calling Init_Service_Handlers() with no arguments (takes none) . . .", dflag_verbose);
     Init_Service_Handlers();
 
+    show_diag(rname, "- INITIALIZING STEP 1p4 -", dflag_init_steps);
     show_diag(rname, "calling dlenv_init() with no arguments (takes none) . . .", dflag_verbose);
     dlenv_init();
 
+    show_diag(rname, "- INITIALIZING STEP 1p5 -", dflag_init_steps);
     show_diag(rname, "calling atexit() with argument 'datalink_cleanup', most likely defined as \"#define datalink_cleanup dlmstp_cleanup\" . . .", dflag_verbose);
     atexit(datalink_cleanup);
 
@@ -490,18 +485,18 @@ int main(int argc, char** argv)
 // - STEP -
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    show_diag(rname, "-", dflag_step);
     show_diag(rname, "- STEP 2 -", dflag_step);
     show_diag(rname, "- Initializations custom to BACnet test program:", dflag_step);
-    show_diag(rname, "-", dflag_step);
 
     show_diag(rname, "calling ~/ports/linux/rs485.c routine to set serial port . . .", dflag_verbose);
     RS485_Set_Interface("/dev/ttyUSB0");
 
 
 
+    show_diag(rname, "-", dflag_step);
     show_diag(rname, "- STEP 3 -", dflag_step);
     show_diag(rname, "- Loop and communications attempt:", dflag_step);
-    show_diag(rname, "-", dflag_step);
 
 
 // Some BACnet communications loop set ups:
@@ -521,12 +516,54 @@ int main(int argc, char** argv)
     show_diag(rname, lbuf, dflag_verbose);
     found = address_bind_request(Target_Device_Object_Instance, &max_apdu, &Target_Address);
 
+
+
+// 2017-04-06 - taken from Kargs' demo program named bacrp:
+    if (!found)
+    {
+        show_diag(rname, "didn't find the requested device, calling routine Send_WhoIs() . . .",
+          dflag_verbose);
+        
+        Send_WhoIs(Target_Device_Object_Instance, Target_Device_Object_Instance);
+    }
+
+    if (1)
+    {
+        show_diag(rname, "Summary of Target_Address contents:", dflag_target_address_summary);
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "  mac_len:  %u", Target_Address.mac_len);
+        show_diag(rname, lbuf, dflag_target_address_summary);
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "      mac:  %03u.%03u.%03u.%03u.%03u.%03u.%03u",
+          Target_Address.mac[0], Target_Address.mac[1], Target_Address.mac[2], Target_Address.mac[3],
+          Target_Address.mac[4], Target_Address.mac[5], Target_Address.mac[6]);
+        show_diag(rname, lbuf, dflag_target_address_summary);
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "      net:  %u", Target_Address.net);
+        show_diag(rname, lbuf, dflag_target_address_summary);
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "      len:  %u", Target_Address.len);
+        show_diag(rname, lbuf, dflag_target_address_summary);
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "      adr:  %u %u %u %u  %u %u %u",
+          Target_Address.adr[0], Target_Address.adr[1],
+          Target_Address.adr[2], Target_Address.adr[3],
+          Target_Address.adr[4], Target_Address.adr[5],
+          Target_Address.adr[6] );
+        show_diag(rname, lbuf, dflag_target_address_summary);
+    }
+
     usleep(ONE_MILLION_MS);
+
+
 
     Target_Device_Object_Instance = 133005;
     Target_Object_Type = 8;
     Target_Object_Instance = 133005;
     Target_Object_Property = 76;
+
+    blank_line_out(rname, 3);
+    show_diag(rname, "entering communiations loop:", dflag_verbose);
 
 
     while (( time_out_not_reached ) && ( loop_cycles_completed < MAX_LOOP_CYCLES_TO_EXECUTE ))
@@ -534,14 +571,19 @@ int main(int argc, char** argv)
 
 //        snprintf(lbuf, SIZE__DIAG_MESSAGE, "%s", "-  COMMUNICATIONS LOOP - NOT YET FULLY IMPLEMENTED!");
 //        show_diag(rname, lbuf, dflag_comms_loop);
+
+        blank_line_out(rname, 1);
+
         show_diag(rname, "*", dflag_comms_loop);
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "-  COMMUNICATIONS LOOP - executing now %d times,", (loop_cycles_completed + 1));
         show_diag(rname, lbuf, dflag_comms_loop);
 
         if ( !found )
         {
-            snprintf(lbuf, SIZE__DIAG_MESSAGE, "- MARK 1 - requesting address binding, with parameters and values:");
-            show_diag(rname, lbuf, dflag_mark);
+//            snprintf(lbuf, SIZE__DIAG_MESSAGE, "- MARK 1 - requesting address binding, with parameters and values:");
+//            show_diag(rname, lbuf, dflag_mark);
+            show_diag(rname, "- MARK 1 - about to call address_bind_request() with parameters and values:", dflag_mark);
+            show_diag(rname, "-", dflag_mark);
 
             snprintf(lbuf, SIZE__DIAG_MESSAGE, "static global variable Target_Device_Object_Instance = %u,", Target_Device_Object_Instance);
             show_diag(rname, lbuf, dflag_verbose);
@@ -554,11 +596,32 @@ int main(int argc, char** argv)
             show_diag(rname, lbuf, dflag_verbose);
             snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Address.mac[%u]", MAX_MAC_LEN);
             show_diag(rname, lbuf, dflag_verbose);
+
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "    Target_Address.mac = %03d %03d %03d %03d  %03d %03d %03d",
+              Target_Address.mac[0],
+              Target_Address.mac[1],
+              Target_Address.mac[2],
+              Target_Address.mac[3],
+              Target_Address.mac[4],
+              Target_Address.mac[5],
+              Target_Address.mac[6]);
+            show_diag(rname, lbuf, dflag_verbose);
+
             snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Address.net = %u", Target_Address.net);
             show_diag(rname, lbuf, dflag_verbose);
             snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Address.len = %u", Target_Address.len);
             show_diag(rname, lbuf, dflag_verbose);
             snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Address.adr[%u]", MAX_MAC_LEN);
+            show_diag(rname, lbuf, dflag_verbose);
+
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "    Target_Address.adr = %03d %03d %03d %03d  %03d %03d %03d",
+              Target_Address.adr[0],
+              Target_Address.adr[1],
+              Target_Address.adr[2],
+              Target_Address.adr[3],
+              Target_Address.adr[4],
+              Target_Address.adr[5],
+              Target_Address.adr[6]);
             show_diag(rname, lbuf, dflag_verbose);
 
             show_diag(rname, "calling address_bind_request() . . .", dflag_verbose);
@@ -567,12 +630,14 @@ int main(int argc, char** argv)
 
         }
 
-//        else // if BACnet address found cached in Kargs address cache code . . .
+
+//        if ( found )
+        if (( found ) || ( (loop_cycles_completed % 20) == 0 ))
         {
 //            snprintf(lbuf, SIZE__DIAG_MESSAGE, "-  COMMUNICATIONS LOOP - looks like object instance %u address already bound,",
 //              Target_Device_Object_Instance);
 //            show_diag(rname, lbuf, dflag_comms_loop);
-            show_diag(rname, "though BACnet address not found cached continuing on to send 'read property request',", dflag_verbose);
+            show_diag(rname, "Kargs BACnet routine address_bind_request() returns 'true'!", dflag_verbose);
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -585,7 +650,7 @@ int main(int argc, char** argv)
 
             if (Request_Invoke_ID == 0)
             {
-                show_diag(rname, "- MARK 2 - calling routine Send_Read_Property_Request() with parameters and values:", dflag_mark);
+                show_diag(rname, "- MARK 2 - about to call routine Send_Read_Property_Request() with parameters and values:", dflag_mark);
 
                 snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Device_Object_Instance = %u", Target_Device_Object_Instance);
                 show_diag(rname, lbuf, dflag_verbose);
@@ -598,15 +663,19 @@ int main(int argc, char** argv)
                 snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Object_Index = %u", Target_Object_Index);
                 show_diag(rname, lbuf, dflag_verbose);
 
+                show_diag(rname, "- calling Send_Read_Property_Request() . . .", dflag_verbose);
                 Request_Invoke_ID =
                   Send_Read_Property_Request(Target_Device_Object_Instance,
                   Target_Object_Type, Target_Object_Instance,
                   Target_Object_Property, Target_Object_Index);
+
+                show_diag(rname, "- back from Send_Read_Property_Request(),", dflag_verbose);
             }
             else if (tsm_invoke_id_free(Request_Invoke_ID))
             {
                 show_diag(rname, "routine tsm_invoke_id_free(Request_Invoke_ID) returned true, breaking out of loop . . .",
                   dflag_verbose);
+                show_diag(rname, "*", dflag_comms_loop);
                 break;
             }
             else if (tsm_invoke_id_failed(Request_Invoke_ID))
@@ -619,6 +688,7 @@ int main(int argc, char** argv)
                 Error_Detected = true;
 
                 /* try again or abort? */
+                show_diag(rname, "*", dflag_comms_loop);
                 break;
             }
 
@@ -656,7 +726,10 @@ int main(int argc, char** argv)
 
         time_elapsed = ( time_present - time_start );
 
-        usleep(ONE_MILLION_MS);
+//        usleep(ONE_MILLION_MS);
+        usleep(100000);
+
+        show_diag(rname, "*", dflag_comms_loop);
 
         ++loop_cycles_completed;
     }
@@ -667,6 +740,7 @@ int main(int argc, char** argv)
 
 
     show_diag(rname, "done.", dflag_announce);
+    blank_line_out(rname, 1);
 
     return 0;
 
