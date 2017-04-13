@@ -82,6 +82,9 @@
 
 #include <tsm.h>         // provides routine tsm_invoke_id_free(), tsm_invoke_id_failed() and tsm_free_invoke_id(),
 
+// 2017-04-13 THU - added
+
+#include <dlmstp.h>      // provides DLMSTP_PACKE.
 
 
 // # A test library header file of Ted's:
@@ -97,6 +100,10 @@
 //----------------------------------------------------------------------
 
 #define SIZE__MSTP_INPUT_BUFFER (1024)
+
+#define ONE_MILLION_MS (1000 * 1000)
+#define MILLI_SECONDS_200K (200 * 1000)
+#define MAX_LOOP_CYCLES_TO_EXECUTE (1000)  // as of 2017-04-06 morning was (30) - TMH
 
 
 
@@ -143,10 +150,124 @@ static uint8_t Rx_Buf[MAX_MPDU] = { 0 };
 
 
 
+// 2017-04-13 -
+
+/** @file linux/dlmstp.c  Provides Linux-specific DataLink functions for MS/TP. */
+
+/* Number of MS/TP Packets Rx/Tx */
+uint16_t MSTP_Packets = 0;
+
+/* packet queues */
+static DLMSTP_PACKET Receive_Packet;
+/* mechanism to wait for a packet */
+/*
+static RT_COND Receive_Packet_Flag;
+static RT_MUTEX Receive_Packet_Mutex;
+*/
+static pthread_cond_t Receive_Packet_Flag;
+static pthread_mutex_t Receive_Packet_Mutex;
+
+
+
 
 //----------------------------------------------------------------------
 // - SECTION - function prototypes
 //----------------------------------------------------------------------
+
+static void get_abstime(
+    struct timespec *abstime,
+    unsigned long milliseconds)
+{
+    struct timeval now, offset, result;
+
+    gettimeofday(&now, NULL);
+    offset.tv_sec = 0;
+    offset.tv_usec = milliseconds * 1000;
+    timeradd(&now, &offset, &result);
+    abstime->tv_sec = result.tv_sec;
+    abstime->tv_nsec = result.tv_usec * 1000;
+}
+
+
+
+// 2017-04-13 - copied to here from ~0.8.3--verbose/ports/linux/dlmsp.c:
+
+// 2017-04-13 - prototype alone here did not work:
+
+extern uint16_t dlmstp_receive(
+  BACNET_ADDRESS * src,  /* source address */
+  uint8_t * pdu,         /* PDU data */
+  uint16_t max_pdu,      /* amount of space available in the PDU  */
+  unsigned timeout       /* milliseconds to wait for a packet */
+);
+
+
+
+
+uint16_t dlmstp_receive(
+  BACNET_ADDRESS * src,  /* source address */
+  uint8_t * pdu,         /* PDU data */
+  uint16_t max_pdu,      /* amount of space available in the PDU  */
+  unsigned timeout       /* milliseconds to wait for a packet */
+)
+{
+    uint16_t pdu_len = 0;
+    struct timespec abstime;
+
+    (void) max_pdu;
+
+// diagnostics:
+    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("dlmstp_receive()");
+
+
+    show_diag(rname, "starting,", dflag_verbose);
+
+    /* see if there is a packet available, and a place
+       to put the reply (if necessary) and process it */
+    pthread_mutex_lock(&Receive_Packet_Mutex);
+    get_abstime(&abstime, timeout);
+    pthread_cond_timedwait(&Receive_Packet_Flag, &Receive_Packet_Mutex,
+        &abstime);
+
+    show_diag(rname, "checking whether Receive_Packet.ready is true,", dflag_verbose);
+    if (Receive_Packet.ready)
+    {
+        show_diag(rname, "checking whether Receive_Packet.pud_len is not zero,", dflag_verbose);
+        if (Receive_Packet.pdu_len)
+        {
+            MSTP_Packets++;
+            if (src)
+            {
+                show_diag(rname, "'src' passed by reference and not null, copying to 'src' receive packet address . . .", dflag_verbose);
+                memmove(src, &Receive_Packet.address, sizeof(Receive_Packet.address));
+            }
+
+            if (pdu)
+            {
+                show_diag(rname, "'pdu' passed by reference and not null, copying to 'pdu' receive packet PDU bytes . . .", dflag_verbose);
+                memmove(pdu, &Receive_Packet.pdu, sizeof(Receive_Packet.pdu));
+            }
+
+            pdu_len = Receive_Packet.pdu_len;
+        }
+
+        Receive_Packet.ready = false;
+    }
+
+    pthread_mutex_unlock(&Receive_Packet_Mutex);
+
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "returning pdu_len = %d to caller . . .", pdu_len);
+    show_diag(rname, lbuf, dflag_verbose);
+    return pdu_len;
+}
+
+
+
+
+
 
 void MyAbortHandler(    // <-- function prototype, function defined in Kargs' ~0.8.3/demo/readprop/main.c - TMH
   BACNET_ADDRESS * src,
@@ -338,6 +459,236 @@ static void Init_Service_Handlers(void)
 
 
 
+int comms_test_2(int argc, char** argv)
+{
+//----------------------------------------------------------------------
+//
+//----------------------------------------------------------------------
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Variables copied from Steve Kargs' demo 'bacrp':
+
+    BACNET_ADDRESS src = {
+        0
+    };  /* address where message came from */
+    uint16_t pdu_len = 0;
+    unsigned timeout = 100;     /* milliseconds */
+    unsigned max_apdu = 0;
+    time_t elapsed_seconds = 0;
+    time_t last_seconds = 0;
+    time_t current_seconds = 0;
+    time_t timeout_seconds = 0;
+    bool found = false;
+
+// END OF:  Kargs' variabels
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+
+    bool time_out_not_reached = true;
+
+    long int loop_cycles_completed = 0;
+
+//    int return_value = 0;
+//    int return_value__id_free = 0;
+//    int return_value__invoke_id_failed = 0;
+
+    int seconds_passed = 0;
+
+// diagnostics:
+
+    char lbuf[SIZE__DIAG_MESSAGE];
+
+    unsigned int dflag_announce   = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
+    unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
+
+//    unsigned int dflag_mark = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("bacnet-stub comms_test_2()");
+
+
+    show_diag(rname, "starting,", dflag_announce);
+
+    Target_Device_Object_Instance = 133005;
+    Target_Object_Type = 8;
+    Target_Object_Instance = 133005;
+    Target_Object_Property = 76;
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// BACnet comm's initialization code copied from Steve Kargs' demo named bacrp:
+
+    /* setup my info */
+    Device_Set_Object_Instance_Number(BACNET_MAX_INSTANCE);
+    address_init();
+    Init_Service_Handlers();
+    dlenv_init();
+    atexit(datalink_cleanup);
+    /* configure the timeout values */
+    last_seconds = time(NULL);
+    timeout_seconds = (apdu_timeout() / 1000) * apdu_retries();
+    /* try to bind with the device */
+    found =
+        address_bind_request(Target_Device_Object_Instance, &max_apdu,
+        &Target_Address);
+    if (!found) {
+        Send_WhoIs(Target_Device_Object_Instance,
+            Target_Device_Object_Instance);
+    }
+
+// END OF:  Karg's bacrp code snippet
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+
+
+
+
+
+
+//    show_diag(rname, "entering communiations test 2 loop:", dflag_verbose);
+
+    if ( 1 )
+    {
+        show_diag(rname, "about to enter comm's loop,", dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Device_Object_Instance holds '%d',", Target_Device_Object_Instance);
+        show_diag(rname, lbuf, dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Type holds '%d',", Target_Object_Type);
+        show_diag(rname, lbuf, dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Instance holds '%d',", Target_Object_Instance);
+        show_diag(rname, lbuf, dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Property holds '%d',", Target_Object_Property);
+        show_diag(rname, lbuf, dflag_verbose);
+        show_diag(rname, "entering communications loop:", dflag_verbose);
+    }
+
+
+
+
+
+//    while (( time_out_not_reached ) && ( loop_cycles_completed < MAX_LOOP_CYCLES_TO_EXECUTE ))
+    for (;;)
+    {
+
+//        if ( ( loop_cycles_completed % 1000000 ) == 0 )
+        {
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "-  COMMUNICATIONS LOOP - executing now %ld times,", (loop_cycles_completed + 1));
+            show_diag(rname, lbuf, dflag_comms_loop);
+        }
+
+
+
+
+// Kargs' bacrp code:
+
+        /* increment timer - exit if timed out */
+        current_seconds = time(NULL);
+
+        /* at least one second has passed */
+        if (current_seconds != last_seconds)
+        {
+            ++seconds_passed;
+            blank_line_out(rname, 1);
+            show_diag(rname, "*** * * * * * * * * * * * * * ***", dflag_comms_loop);
+//            show_diag(rname, "***   ONE SECOND HAS PASSED   ***", dflag_comms_loop);
+snprintf(lbuf, SIZE__DIAG_MESSAGE, "***   SECONDS PASSED:  %d   ***", seconds_passed);
+            show_diag(rname, lbuf, dflag_comms_loop);
+            show_diag(rname, "*** * * * * * * * * * * * * * ***", dflag_comms_loop);
+            blank_line_out(rname, 1);
+            tsm_timer_milliseconds((uint16_t) ((current_seconds - last_seconds) * 1000));
+        }
+
+        if (Error_Detected)
+            break;
+
+        /* wait until the device is bound, or timeout and quit */
+        if (!found)
+        {
+            show_diag(rname, "calling address_bind_request() . . .", dflag_comms_loop);
+            found = address_bind_request(Target_Device_Object_Instance, &max_apdu, &Target_Address);
+        }
+
+        if (found)
+        {
+//            show_diag(rname, "calling tsm_invoke_id_free() . . .", dflag_comms_loop);
+//            return_value__id_free = tsm_invoke_id_free(Request_Invoke_ID);
+//
+//            show_diag(rname, "calling tsm_invoke_id_failed() . . .", dflag_comms_loop);
+//            return_value__invoke_id_failed = tsm_invoke_id_failed(Request_Invoke_ID);
+
+            if (Request_Invoke_ID == 0)
+            {
+                show_diag(rname, "calling Send_Read_Property_Request() . . .", dflag_comms_loop);
+                Request_Invoke_ID =
+                    Send_Read_Property_Request(Target_Device_Object_Instance,
+                    Target_Object_Type, Target_Object_Instance,
+                    Target_Object_Property, Target_Object_Index);
+            }
+
+            else if (tsm_invoke_id_free(Request_Invoke_ID))
+//            else if (return_value__id_free)
+            {
+                break;
+            }
+
+            else if (tsm_invoke_id_failed(Request_Invoke_ID))
+//            else if (return_value__invoke_id_failed)
+            {
+                fprintf(stderr, "\rError: TSM Timeout!\r\n");
+                tsm_free_invoke_id(Request_Invoke_ID);
+                Error_Detected = true;
+                /* try again or abort? */
+                break;
+            }
+        }
+        else
+        {
+            /* increment timer - exit if timed out */
+            elapsed_seconds += (current_seconds - last_seconds);
+            if (elapsed_seconds > timeout_seconds)
+            {
+                printf("\rError: APDU Timeout!\r\n");
+                Error_Detected = true;
+                break;
+            }
+        }
+
+
+        /* returns 0 bytes on timeout */
+//        show_diag(rname, "calling datalink_receive(), really dlmstp_receive() . . .", dflag_comms_loop);
+        show_diag(rname, "calling dlmstp_receive() directly . . .", dflag_comms_loop);
+//        pdu_len = datalink_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
+        pdu_len = dlmstp_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
+
+        /* process */
+        show_diag(rname, "checking whether pdu_len not zero,", dflag_comms_loop);
+        if (pdu_len)
+        {
+            npdu_handler(&src, &Rx_Buf[0], pdu_len);
+        }
+
+
+        /* keep track of time for next check */
+        last_seconds = current_seconds;
+
+
+
+// Ted's code . . .
+
+        ++loop_cycles_completed;
+
+
+    } // end WHILE-loop to realize BACnet communications
+
+
+    return 0;
+
+} // end routine comms_test_2()
+
+
+
+
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // - SECTION - main line code
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -347,14 +698,18 @@ int main(int argc, char** argv)
 
     int array_size;
 
-#define ONE_MILLION_MS (1000 * 1000)
-#define MILLI_SECONDS_200K (200 * 1000)
-#define MAX_LOOP_CYCLES_TO_EXECUTE (500)  // as of 2017-04-06 morning was (30) - TMH
+// 2017-04-12 - moved up near top of file, before function definitions:
+// #define ONE_MILLION_MS (1000 * 1000)
+// #define MILLI_SECONDS_200K (200 * 1000)
+// #define MAX_LOOP_CYCLES_TO_EXECUTE (1000)  // as of 2017-04-06 morning was (30) - TMH
 
     time_t time_start;
     time_t time_present;
     time_t time_elapsed;
     bool time_out_not_reached = true;
+
+    int loop_cycles_completed = 0;
+
 
 // Variables copied from Kargs demo program named bacrp:
     bool found = false;
@@ -365,7 +720,7 @@ int main(int argc, char** argv)
 
     BACNET_ADDRESS src = { 0 };  /* address where message came from */
 
-    unsigned timeout = 100;     /* milliseconds */
+    unsigned timeout = 400;     /* milliseconds - 2017-04-10 MON, was one hundred (100) ms - TMH */
 
 
 // diagnostics:
@@ -401,6 +756,15 @@ int main(int argc, char** argv)
 #endif
     show_diag(rname, lbuf, dflag_verbose);
 
+
+
+    show_diag(rname, "calling communications test routine 2 . . .", dflag_verbose);
+    comms_test_2(argc, argv);
+
+
+
+if ( 0 )
+{
 
     show_diag(rname, "defining a pointer variable to a structure of type mstp_port_struct_t . . .", dflag_verbose);
 
@@ -485,13 +849,19 @@ int main(int argc, char** argv)
 // - STEP -
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    show_diag(rname, "-", dflag_step);
-    show_diag(rname, "- STEP 2 -", dflag_step);
-    show_diag(rname, "- Initializations custom to BACnet test program:", dflag_step);
+    if ( 0 )
+    {
+        show_diag(rname, "-", dflag_step);
+        show_diag(rname, "- STEP 2 -", dflag_step);
+        show_diag(rname, "- Initializations custom to BACnet test program:", dflag_step);
 
-    show_diag(rname, "calling ~/ports/linux/rs485.c routine to set serial port . . .", dflag_verbose);
-    RS485_Set_Interface("/dev/ttyUSB0");
-
+        show_diag(rname, "calling ~/ports/linux/rs485.c routine to set serial port . . .", dflag_verbose);
+        RS485_Set_Interface("/dev/ttyUSB1");
+    }
+    else
+    {
+        show_diag(rname, "Note:  not explicitly setting serial / RS485 device port,", dflag_step);
+    }
 
 
     show_diag(rname, "-", dflag_step);
@@ -505,7 +875,7 @@ int main(int argc, char** argv)
     time_start = time(NULL);
     time_present = time(NULL);
 
-    int loop_cycles_completed = 0;
+    loop_cycles_completed = 0;
 
 
 // 2017-04-05 -
@@ -631,8 +1001,8 @@ int main(int argc, char** argv)
         }
 
 
-//        if ( found )
-        if (( found ) || ( (loop_cycles_completed % 20) == 0 ))
+        if ( found )
+//        if (( found ) || ( (loop_cycles_completed % 20) == 0 ))
         {
 //            snprintf(lbuf, SIZE__DIAG_MESSAGE, "-  COMMUNICATIONS LOOP - looks like object instance %u address already bound,",
 //              Target_Device_Object_Instance);
@@ -648,9 +1018,9 @@ int main(int argc, char** argv)
 //  local MS/TP network:
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-            if (Request_Invoke_ID == 0)
+            if ( Request_Invoke_ID == 0 )
             {
-                show_diag(rname, "- MARK 2 - about to call routine Send_Read_Property_Request() with parameters and values:", dflag_mark);
+                show_diag(rname, "- MARK 5 - about to call routine Send_Read_Property_Request() with parameters and values:", dflag_mark);
 
                 snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Device_Object_Instance = %u", Target_Device_Object_Instance);
                 show_diag(rname, lbuf, dflag_verbose);
@@ -669,17 +1039,27 @@ int main(int argc, char** argv)
                   Target_Object_Type, Target_Object_Instance,
                   Target_Object_Property, Target_Object_Index);
 
-                show_diag(rname, "- back from Send_Read_Property_Request(),", dflag_verbose);
+//                show_diag(rname, "- back from Send_Read_Property_Request(),", dflag_verbose);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "back from routine Send_Read_Property_Request() which returns value %d,",
+                  Request_Invoke_ID);
+                show_diag(rname, lbuf, dflag_verbose);
+
             }
-            else if (tsm_invoke_id_free(Request_Invoke_ID))
+
+            else if ( tsm_invoke_id_free(Request_Invoke_ID) )
             {
+                show_diag(rname, "- MARK 6 - ", dflag_mark);
+
                 show_diag(rname, "routine tsm_invoke_id_free(Request_Invoke_ID) returned true, breaking out of loop . . .",
                   dflag_verbose);
                 show_diag(rname, "*", dflag_comms_loop);
                 break;
             }
+
             else if (tsm_invoke_id_failed(Request_Invoke_ID))
             {
+                show_diag(rname, "- MARK 7 - ", dflag_mark);
+
                 show_diag(rname, "routine tsm_invoke_id_failed(Request_Invoke_ID) returned true, breaking out of loop . . .",
                   dflag_verbose);
 
@@ -692,15 +1072,35 @@ int main(int argc, char** argv)
                 break;
             }
 
+            int result = tsm_invoke_id_free(Request_Invoke_ID);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "call to routine tsm_invoke_id_free() returns %d,", result);
+            show_diag(rname, lbuf, dflag_verbose);
+
+            result = tsm_invoke_id_failed(Request_Invoke_ID);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "call to routine tsm_invoke_id_failed() returns %d,", result);
+            show_diag(rname, lbuf, dflag_verbose);
+
         }
 
 
 
         /* returns 0 bytes on timeout */
-        show_diag(rname, "calling datalink_receive() . . .", dflag_verbose);
+//        show_diag(rname, "calling datalink_receive() . . .", dflag_verbose);
+        show_diag(rname, "* * *", dflag_verbose);
+        show_diag(rname, "calling datalink_receive() with:", dflag_verbose);
+        show_diag(rname, "  address of 'src',", dflag_verbose);
+        show_diag(rname, "  address of 'Rx_Buf[]',", dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "  MAX_MPDU holding %d,", MAX_MPDU);
+        show_diag(rname, lbuf, dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "  timeout holding %d,", timeout);
+        show_diag(rname, lbuf, dflag_verbose);
+        show_diag(rname, "calling . . . . .", dflag_verbose);
+        show_diag(rname, "* * *", dflag_verbose);
+
         pdu_len = datalink_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
 
         /* process */
+        show_diag(rname, "checking whether Protocol Data Unit length greater than zero . . .", dflag_verbose);
         if (pdu_len)
         {
             show_diag(rname, "calling npdu_handler() . . .", dflag_verbose);
@@ -724,18 +1124,29 @@ int main(int argc, char** argv)
 
         time_present = time(NULL);
 
-        time_elapsed = ( time_present - time_start );
-
 //        usleep(ONE_MILLION_MS);
         usleep(100000);
 
         show_diag(rname, "*", dflag_comms_loop);
 
         ++loop_cycles_completed;
+
+    } // end WHILE-loop to realize BACnet communications
+
+
+    {
+        time_elapsed = ( time_present - time_start );
+
+        show_diag(rname, "communciations loop timing summary:", dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "  start time:  %lu", time_start);
+        show_diag(rname, lbuf, dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "    end time:  %lu", time_present);
+        show_diag(rname, lbuf, dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "elapsed time:  %lu", time_elapsed);
+        show_diag(rname, lbuf, dflag_verbose);
     }
 
-
-
+} // end IF-block to enable/disable communications test 1 - TMH
 
 
 
