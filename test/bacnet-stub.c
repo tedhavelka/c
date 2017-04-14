@@ -174,6 +174,7 @@ static pthread_mutex_t Receive_Packet_Mutex;
 // - SECTION - function prototypes
 //----------------------------------------------------------------------
 
+/*
 static void get_abstime(
     struct timespec *abstime,
     unsigned long milliseconds)
@@ -187,6 +188,7 @@ static void get_abstime(
     abstime->tv_sec = result.tv_sec;
     abstime->tv_nsec = result.tv_usec * 1000;
 }
+*/
 
 
 
@@ -204,11 +206,14 @@ extern uint16_t dlmstp_receive(
 
 
 
+/*
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
 uint16_t dlmstp_receive(
-  BACNET_ADDRESS * src,  /* source address */
-  uint8_t * pdu,         /* PDU data */
-  uint16_t max_pdu,      /* amount of space available in the PDU  */
-  unsigned timeout       /* milliseconds to wait for a packet */
+  BACNET_ADDRESS * src,  // / * source address * /
+  uint8_t * pdu,         // / * PDU data * /
+  uint16_t max_pdu,      // / * amount of space available in the PDU  * /
+  unsigned timeout       // / * milliseconds to wait for a packet * /
 )
 {
     uint16_t pdu_len = 0;
@@ -225,8 +230,8 @@ uint16_t dlmstp_receive(
 
     show_diag(rname, "starting,", dflag_verbose);
 
-    /* see if there is a packet available, and a place
-       to put the reply (if necessary) and process it */
+//    / * see if there is a packet available, and a place
+//       to put the reply (if necessary) and process it * /
     pthread_mutex_lock(&Receive_Packet_Mutex);
     get_abstime(&abstime, timeout);
     pthread_cond_timedwait(&Receive_Packet_Flag, &Receive_Packet_Mutex,
@@ -264,7 +269,8 @@ uint16_t dlmstp_receive(
     return pdu_len;
 }
 
-
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+*/
 
 
 
@@ -413,7 +419,21 @@ void My_Read_Property_Ack_Handler(
   uint16_t service_len,
   BACNET_ADDRESS * src,
   BACNET_CONFIRMED_SERVICE_ACK_DATA * service_data
-);
+)
+{
+    int len = 0;
+    BACNET_READ_PROPERTY_DATA data;
+
+    if (address_match(&Target_Address, src) &&
+        (service_data->invoke_id == Request_Invoke_ID)) {
+        len =
+            rp_ack_decode_service_request(service_request, service_len, &data);
+        if (len > 0) {
+            rp_ack_print_data(&data);
+        }
+    }
+}
+
 
 
 
@@ -485,7 +505,7 @@ int comms_test_2(int argc, char** argv)
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 
-    bool time_out_not_reached = true;
+//    bool time_out_not_reached = true;
 
     long int loop_cycles_completed = 0;
 
@@ -664,6 +684,7 @@ snprintf(lbuf, SIZE__DIAG_MESSAGE, "***   SECONDS PASSED:  %d   ***", seconds_pa
         show_diag(rname, "checking whether pdu_len not zero,", dflag_comms_loop);
         if (pdu_len)
         {
+            show_diag(rname, "pdu_len not zero, calling Kargs' routine npdu_handler() . . .", dflag_comms_loop);
             npdu_handler(&src, &Rx_Buf[0], pdu_len);
         }
 
@@ -747,6 +768,20 @@ int main(int argc, char** argv)
     array_size = strlen(lbuf);
     snprintf(lbuf, SIZE__DIAG_MESSAGE, "local buffer for messages found to be %d bytes long,", array_size);
     show_diag(rname, lbuf, dflag_verbose);
+
+
+// 2017-04-14 - A few variables to test, while not in use, to avoid gcc warnings:
+
+    if ( Receive_Packet.ready ) { }
+//    if ( Receive_Packet_Flag.waiting) { }
+//    if ( Receive_Packet_Mutex ) { }
+//    if ( get_abstime ) { }
+
+// . . . these are part of Kargs' library routine dlmstp_receive(),
+// which Ted tested as a copied routine in this test program,
+// but without success to read back and see the CWLP's
+// response to a BACnet "read property" request - TMH
+
 
 // 2017-04-06 THU -
 #if defined(BACDL_MSTP)
