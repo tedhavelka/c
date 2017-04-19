@@ -22,6 +22,22 @@
 //
 //
 //
+//  KNOWN ISSUES:
+//
+//    2017-04-15 - function pointer datalink_receive() is not
+//    correctly assigned a valid function, in Ted's 2017 case the
+//    address of Steve Kargs' function dlmstp_receive().  This
+//    mis-assignment doesn't create any error or warning at compile
+//    time, yet at run time the main communications loop executes
+//    several hundred times faster than normal and doesn't ever receive
+//    any BACnet frames or bytes back from the local twisted pair
+//    EIA-485 network.  Ted noting from found bug last week that a
+//    a function may be defined with no code at all, just its name and
+//    a curly brace pair, and compile and run.  Very hard to trace
+//    this unintentional syntax error in gdb, when there are no lines
+//    of code on which to break.
+//
+//
 //  REFERENCES:
 //
 //    *  https://www.cs.swarthmore.edu/~newhall/unixhelp/howto_C_libraries.html
@@ -164,8 +180,8 @@ static DLMSTP_PACKET Receive_Packet;
 static RT_COND Receive_Packet_Flag;
 static RT_MUTEX Receive_Packet_Mutex;
 */
-static pthread_cond_t Receive_Packet_Flag;
-static pthread_mutex_t Receive_Packet_Mutex;
+// static pthread_cond_t Receive_Packet_Flag;
+// static pthread_mutex_t Receive_Packet_Mutex;
 
 
 
@@ -424,14 +440,31 @@ void My_Read_Property_Ack_Handler(
     int len = 0;
     BACNET_READ_PROPERTY_DATA data;
 
-    if (address_match(&Target_Address, src) &&
-        (service_data->invoke_id == Request_Invoke_ID)) {
-        len =
-            rp_ack_decode_service_request(service_request, service_len, &data);
-        if (len > 0) {
+
+//    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_announce   = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("bacnet-stub copy of Kargs My_Read_Property_Ack_Handler()");
+
+
+    show_diag(rname, "starting,", dflag_announce);
+
+    if (address_match(&Target_Address, src) && (service_data->invoke_id == Request_Invoke_ID))
+    {
+        show_diag(rname, "calling rp_ack_decode_service_request() . . .", dflag_verbose);
+        len = rp_ack_decode_service_request(service_request, service_len, &data);
+
+        if (len > 0)
+        {
+            show_diag(rname, "got back some bytes from latest routine call,", dflag_verbose);
+            show_diag(rname, "calling rp_ack_print_data() . . .", dflag_verbose);
             rp_ack_print_data(&data);
         }
     }
+
+    show_diag(rname, "returning to calling code . . .", dflag_announce);
+
 }
 
 
@@ -439,36 +472,64 @@ void My_Read_Property_Ack_Handler(
 
 static void Init_Service_Handlers(void)
 {
+//    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_announce   = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("Init_Service_Handlers()");
+
+
+    show_diag(rname, "starting,", dflag_announce);
+
+    show_diag(rname, "Note:  this routine copied from Kargs' demo program named bacrp,", dflag_announce);
+
+    show_diag(rname, "- INIT SERVICE HANDLERS 1 - calling Device_Init() . . .", dflag_announce);
     Device_Init(NULL);
 
 // *  we need to handle who-is to support dynamic device binding to us * /
+    show_diag(rname, "- INIT SERVICE HANDLERS 2 - calling apdu_set_unconfirmed_handler(SERVICE_UNCONFIRMED_WHO_IS, handler_who_is) . . .",
+      dflag_verbose);
     apdu_set_unconfirmed_handler(SERVICE_UNCONFIRMED_WHO_IS, handler_who_is);
 
 
 // *  handle i-am to support binding to other devices * /
+    show_diag(rname, "- INIT SERVICE HANDLERS 3 - calling apdu_set_unconfirmed_handler(SERVICE_UNCONFIRMED_I_AM, handler_i_am_bind) . . .",
+      dflag_verbose);
     apdu_set_unconfirmed_handler(SERVICE_UNCONFIRMED_I_AM, handler_i_am_bind);
 
 
 // *  set the handler for all the services we don't implement
 //       It is required to send the proper reject message... * /
+    show_diag(rname, "- INIT SERVICE HANDLERS 4 - calling apdu_set_unrecognized_service_handler_handler(handler_unrecognized_service) . . .",
+      dflag_verbose);
     apdu_set_unrecognized_service_handler_handler
         (handler_unrecognized_service);
 
 
 // *  we must implement read property - it's required! * /
+    show_diag(rname, "- INIT SERVICE HANDLERS 5 - calling apdu_set_confirmed_handler(SERVICE_CONFIRMED_READ_PROPERTY, handler_read_property) . . .",
+      dflag_verbose);
     apdu_set_confirmed_handler(SERVICE_CONFIRMED_READ_PROPERTY,
         handler_read_property);
 
 
 // * handle the data coming back from confirmed requests * /
+    show_diag(rname, "- INIT SERVICE HANDLERS 6 - calling apdu_set_confirmed_ack_handler(SERVICE_CONFIRMED_READ_PROPERTY, My_Read_Property_Ack_Handler) . . .",
+      dflag_verbose);
     apdu_set_confirmed_ack_handler(SERVICE_CONFIRMED_READ_PROPERTY,
         My_Read_Property_Ack_Handler);
 
 
 // * handle any errors coming back * /
+    show_diag(rname, "- INIT SERVICE HANDLERS 7 - calling apdu_set_error_handler(SERVICE_CONFIRMED_READ_PROPERTY, MyErrorHandler) . . .", dflag_verbose);
     apdu_set_error_handler(SERVICE_CONFIRMED_READ_PROPERTY, MyErrorHandler);
+    show_diag(rname, "- INIT SERVICE HANDLERS 8 - calling apdu_set_abort_handler(MyAbortHandler) . . .", dflag_verbose);
     apdu_set_abort_handler(MyAbortHandler);
+    show_diag(rname, "- INIT SERVICE HANDLERS 9 - calling apdu_set_reject_handler(MyRejectHandler) . . .", dflag_verbose);
     apdu_set_reject_handler(MyRejectHandler);
+
+
+    show_diag(rname, "returning to calling code . . .", dflag_announce);
 
 } // end routine Init_Service_Handlers()
 
@@ -571,6 +632,7 @@ int comms_test_2(int argc, char** argv)
     if ( 1 )
     {
         show_diag(rname, "about to enter comm's loop,", dflag_verbose);
+
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Device_Object_Instance holds '%d',", Target_Device_Object_Instance);
         show_diag(rname, lbuf, dflag_verbose);
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Type holds '%d',", Target_Object_Type);
@@ -579,6 +641,10 @@ int comms_test_2(int argc, char** argv)
         show_diag(rname, lbuf, dflag_verbose);
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Property holds '%d',", Target_Object_Property);
         show_diag(rname, lbuf, dflag_verbose);
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "variable Request_Invoke_ID holds '%d',", Request_Invoke_ID);
+        show_diag(rname, lbuf, dflag_verbose);
+
         show_diag(rname, "entering communications loop:", dflag_verbose);
     }
 
@@ -619,7 +685,11 @@ snprintf(lbuf, SIZE__DIAG_MESSAGE, "***   SECONDS PASSED:  %d   ***", seconds_pa
         }
 
         if (Error_Detected)
+        {
+            show_diag(rname, "error detected and noted in variable named 'Error_Detected'!", dflag_verbose);
+            show_diag(rname, "breaking out of communications loop . . .", dflag_verbose);
             break;
+        }
 
         /* wait until the device is bound, or timeout and quit */
         if (!found)
@@ -638,23 +708,41 @@ snprintf(lbuf, SIZE__DIAG_MESSAGE, "***   SECONDS PASSED:  %d   ***", seconds_pa
 
             if (Request_Invoke_ID == 0)
             {
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "variable found holds %d, and variable Request_Invoke_ID holds %d,",
+                  found, Request_Invoke_ID);
+                show_diag(rname, lbuf, dflag_verbose);
+
                 show_diag(rname, "calling Send_Read_Property_Request() . . .", dflag_comms_loop);
                 Request_Invoke_ID =
                     Send_Read_Property_Request(Target_Device_Object_Instance,
                     Target_Object_Type, Target_Object_Instance,
                     Target_Object_Property, Target_Object_Index);
+
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "assigned return value of Send_Read_Property_Request(), Request_Invoke_ID now equals %d,", 
+                  Request_Invoke_ID);
+                show_diag(rname, lbuf, dflag_verbose);
+                show_diag(rname, "we only make a \"read property request\" when Request_Invoke_ID equals zero,", dflag_verbose);
             }
 
             else if (tsm_invoke_id_free(Request_Invoke_ID))
-//            else if (return_value__id_free)
             {
+                show_diag(rname, "call to tsm_invoke_id_free(Request_Invoke_ID) returns true,", dflag_verbose);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "and Request_Invoke_ID presently = %d,", Request_Invoke_ID);
+                show_diag(rname, lbuf, dflag_verbose);
+                show_diag(rname, "breaking out of communications loop . . .", dflag_verbose);
                 break;
             }
 
             else if (tsm_invoke_id_failed(Request_Invoke_ID))
-//            else if (return_value__invoke_id_failed)
             {
                 fprintf(stderr, "\rError: TSM Timeout!\r\n");
+
+                show_diag(rname, "call to tsm_invoke_id_failed(Request_Invoke_ID) returns true,", dflag_verbose);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "and Request_Invoke_ID presently = %d,", Request_Invoke_ID);
+                show_diag(rname, lbuf, dflag_verbose);
+                show_diag(rname, "setting Error_Detected to 'true',", dflag_verbose);
+                show_diag(rname, "breaking out of communications loop . . .", dflag_verbose);
+
                 tsm_free_invoke_id(Request_Invoke_ID);
                 Error_Detected = true;
                 /* try again or abort? */
@@ -675,10 +763,19 @@ snprintf(lbuf, SIZE__DIAG_MESSAGE, "***   SECONDS PASSED:  %d   ***", seconds_pa
 
 
         /* returns 0 bytes on timeout */
-//        show_diag(rname, "calling datalink_receive(), really dlmstp_receive() . . .", dflag_comms_loop);
-        show_diag(rname, "calling dlmstp_receive() directly . . .", dflag_comms_loop);
 //        pdu_len = datalink_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
-        pdu_len = dlmstp_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
+
+        if ( 0 )
+        {
+            show_diag(rname, "calling datalink_receive(), really dlmstp_receive() . . .", dflag_comms_loop);
+            pdu_len = datalink_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
+        }
+        else
+        {
+            show_diag(rname, "calling dlmstp_receive() directly . . .", dflag_comms_loop);
+            pdu_len = dlmstp_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
+        }
+
 
         /* process */
         show_diag(rname, "checking whether pdu_len not zero,", dflag_comms_loop);
@@ -701,6 +798,9 @@ snprintf(lbuf, SIZE__DIAG_MESSAGE, "***   SECONDS PASSED:  %d   ***", seconds_pa
 
     } // end WHILE-loop to realize BACnet communications
 
+
+    show_diag(rname, "leaving main communcations loop,", dflag_verbose);
+    show_diag(rname, "returning to caller . . .", dflag_announce);
 
     return 0;
 
@@ -1055,6 +1155,9 @@ if ( 0 )
 
             if ( Request_Invoke_ID == 0 )
             {
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "comm's loop variable Request_Invoke_ID = %d,", Request_Invoke_ID);
+                show_diag(rname, lbuf, dflag_verbose);
+
                 show_diag(rname, "- MARK 5 - about to call routine Send_Read_Property_Request() with parameters and values:", dflag_mark);
 
                 snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Device_Object_Instance = %u", Target_Device_Object_Instance);
@@ -1068,7 +1171,7 @@ if ( 0 )
                 snprintf(lbuf, SIZE__DIAG_MESSAGE, "  Target_Object_Index = %u", Target_Object_Index);
                 show_diag(rname, lbuf, dflag_verbose);
 
-                show_diag(rname, "- calling Send_Read_Property_Request() . . .", dflag_verbose);
+                show_diag(rname, "so calling Send_Read_Property_Request() . . .", dflag_verbose);
                 Request_Invoke_ID =
                   Send_Read_Property_Request(Target_Device_Object_Instance,
                   Target_Object_Type, Target_Object_Instance,
