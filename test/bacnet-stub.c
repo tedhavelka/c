@@ -121,6 +121,8 @@
 #define MILLI_SECONDS_200K (200 * 1000)
 #define MAX_LOOP_CYCLES_TO_EXECUTE (1000)  // as of 2017-04-06 morning was (30) - TMH
 
+// 2017-04-20 - added:
+#define TIMES_TO_REPEAT_COMMS_LOOP (10)
 
 
 
@@ -543,6 +545,12 @@ static void Init_Service_Handlers(void)
 int comms_test_2(int argc, char** argv)
 {
 //----------------------------------------------------------------------
+// 2017-04-19 NOTES:  this routine has been here about one week, and
+//  is now working as expected.  Ted leaving this routine in place and
+//  continuing development in a copy of this routine.  Next dev steps
+//  include amending code to send "Read Property" requests multiple
+//  times.  Must figure out any BACnet state machine steps which our
+//  test program code must attend to, between requests . . .  - TMH
 //
 //----------------------------------------------------------------------
 
@@ -810,6 +818,328 @@ snprintf(lbuf, SIZE__DIAG_MESSAGE, "***   SECONDS PASSED:  %d   ***", seconds_pa
 
 
 
+int comms_test_3(int argc, char** argv)
+{
+//----------------------------------------------------------------------
+// 2017-04-19:  started . . . this routine entails work on getting
+//   multiple BACnet requests sent with the correct timing to obtain
+//   readings, send bad packets, and see what happens, while following
+//   the timing constraints of BACnet protocol.  - TMH
+//
+//
+//
+//----------------------------------------------------------------------
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Variables copied from Steve Kargs' demo 'bacrp':
+
+    BACNET_ADDRESS src = { 0 };  /* address where message came from */
+
+    uint16_t pdu_len = 0;
+    unsigned timeout = 100;     /* milliseconds */
+    unsigned max_apdu = 0;
+    time_t elapsed_seconds = 0;
+    time_t last_seconds = 0;
+    time_t current_seconds = 0;
+    time_t timeout_seconds = 0;
+    bool found = false;
+
+// END OF:  Kargs' variabels
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+
+//    bool time_out_not_reached = true;
+
+    long int loop_cycles_completed = 0;
+
+//    int return_value = 0;
+//    int return_value__id_free = 0;
+//    int return_value__invoke_id_failed = 0;
+
+    int seconds_passed = 0;
+
+// diagnostics:
+
+    char lbuf[SIZE__DIAG_MESSAGE];
+
+// Ted looking to use this diagnostics flag in conjunction with routine
+// + which changes its value at run time, and add some flexibility to
+// + the verbose level of diagnostics which Ted's "dflag" variables
+// + provide in a very simple way:
+    int routine_scoped_silence_flag = 1;
+
+    unsigned int dflag_announce   = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
+    unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
+//    unsigned int dflag_announce   = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+//    unsigned int dflag_verbose    = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+//    unsigned int dflag_comms_loop = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+
+//    unsigned int dflag_mark = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("bacnet-stub comms_test_3()");
+
+
+    show_diag(rname, "starting,", dflag_announce);
+
+    Target_Device_Object_Instance = 133005;
+    Target_Object_Type = 8;
+    Target_Object_Instance = 133005;
+    Target_Object_Property = 76;
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// BACnet comm's initialization code copied from Steve Kargs' demo named bacrp:
+
+    /* setup my info */
+    Device_Set_Object_Instance_Number(BACNET_MAX_INSTANCE);
+    address_init();
+    Init_Service_Handlers();
+    dlenv_init();
+    atexit(datalink_cleanup);
+    /* configure the timeout values */
+    last_seconds = time(NULL);
+    timeout_seconds = (apdu_timeout() / 1000) * apdu_retries();
+    /* try to bind with the device */
+    found =
+        address_bind_request(Target_Device_Object_Instance, &max_apdu,
+        &Target_Address);
+    if (!found) {
+        Send_WhoIs(Target_Device_Object_Instance,
+            Target_Device_Object_Instance);
+    }
+
+// END OF:  Karg's bacrp code snippet
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+
+
+
+
+
+
+//    show_diag(rname, "entering communiations test 2 loop:", dflag_verbose);
+
+    if ( 1 )
+    {
+        show_diag(rname, "about to enter comm's loop,", dflag_verbose);
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Device_Object_Instance holds '%d',", Target_Device_Object_Instance);
+        show_diag(rname, lbuf, dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Type holds '%d',", Target_Object_Type);
+        show_diag(rname, lbuf, dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Instance holds '%d',", Target_Object_Instance);
+        show_diag(rname, lbuf, dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Property holds '%d',", Target_Object_Property);
+        show_diag(rname, lbuf, dflag_verbose);
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "variable Request_Invoke_ID holds '%d',", Request_Invoke_ID);
+        show_diag(rname, lbuf, dflag_verbose);
+
+        show_diag(rname, "entering communications loop:", dflag_verbose);
+        blank_line_out(rname, 3);
+    }
+
+
+
+    int i = 0;
+
+//    while (( time_out_not_reached ) && ( loop_cycles_completed < MAX_LOOP_CYCLES_TO_EXECUTE ))
+    while ( i < TIMES_TO_REPEAT_COMMS_LOOP )
+    {
+        ++i;
+        blank_line_out(rname, 2);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "--- sending \"Read Request\" attempt %d:   ---", i);
+        show_diag(rname, lbuf, dflag_verbose);
+
+        loop_cycles_completed = 0;
+
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Ted resetting Kargs' variable which appears to be a flag relating to 
+// BACnet device address being discovered, but Ted not yet sure.
+//
+// Similarly resetting variable Request_Invoke_ID, in effort to
+// repeat BACnet requests without going through initialization steps
+// again:
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//
+        found = 0;
+
+        Request_Invoke_ID = 0;
+
+
+        for (;;)
+        {
+
+//            if ( ( loop_cycles_completed % 1000000 ) == 0 )
+            {
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "-  COMMUNICATIONS LOOP - executing now %ld times,", (loop_cycles_completed + 1));
+                show_diag(rname, lbuf, dflag_comms_loop);
+            }
+
+
+
+
+// Kargs' bacrp code:
+
+        /* increment timer - exit if timed out */
+            current_seconds = time(NULL);
+
+        /* at least one second has passed */
+            if (current_seconds != last_seconds)
+            {
+                ++seconds_passed;
+                blank_line_out(rname, 1);
+                show_diag(rname, "*** * * * * * * * * * * * * * ***", dflag_comms_loop);
+//                show_diag(rname, "***   ONE SECOND HAS PASSED   ***", dflag_comms_loop);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "***   SECONDS PASSED:  %d   ***", seconds_passed);
+                show_diag(rname, lbuf, dflag_comms_loop);
+                show_diag(rname, "*** * * * * * * * * * * * * * ***", dflag_comms_loop);
+                blank_line_out(rname, 1);
+                tsm_timer_milliseconds((uint16_t) ((current_seconds - last_seconds) * 1000));
+            }
+
+            if (Error_Detected)
+            {
+                show_diag(rname, "error detected and noted in variable named 'Error_Detected'!", dflag_verbose);
+                show_diag(rname, "breaking out of communications loop . . .", dflag_verbose);
+                blank_line_out(rname, 1);
+                break;
+            }
+
+        /* wait until the device is bound, or timeout and quit */
+            if (!found)
+            {
+                show_diag(rname, "calling address_bind_request() . . .", dflag_comms_loop);
+                found = address_bind_request(Target_Device_Object_Instance, &max_apdu, &Target_Address);
+            }
+
+            if (found)
+            {
+//                show_diag(rname, "calling tsm_invoke_id_free() . . .", dflag_comms_loop);
+//                return_value__id_free = tsm_invoke_id_free(Request_Invoke_ID);
+//
+//                show_diag(rname, "calling tsm_invoke_id_failed() . . .", dflag_comms_loop);
+//                return_value__invoke_id_failed = tsm_invoke_id_failed(Request_Invoke_ID);
+
+                show_diag(rname, "variable 'found' now set to 'true', the return value from calling address_bind_request(),", dflag_verbose);
+
+
+                if (Request_Invoke_ID == 0)
+                {
+                    snprintf(lbuf, SIZE__DIAG_MESSAGE, "variable found holds %d, and variable Request_Invoke_ID holds %d,",
+                      found, Request_Invoke_ID);
+                    show_diag(rname, lbuf, dflag_verbose);
+
+                    show_diag(rname, "calling Send_Read_Property_Request() . . .", dflag_comms_loop);
+                    Request_Invoke_ID =
+                        Send_Read_Property_Request(Target_Device_Object_Instance,
+                        Target_Object_Type, Target_Object_Instance,
+                        Target_Object_Property, Target_Object_Index);
+
+                    snprintf(lbuf, SIZE__DIAG_MESSAGE, "assigned return value of Send_Read_Property_Request(), Request_Invoke_ID now equals %d,", 
+                      Request_Invoke_ID);
+                    show_diag(rname, lbuf, dflag_verbose);
+                    show_diag(rname, "we only make a \"read property request\" when Request_Invoke_ID equals zero,", dflag_verbose);
+                }
+
+                else if (tsm_invoke_id_free(Request_Invoke_ID))
+                {
+                    show_diag(rname, "2017-04-20 - variable 'found' set to 'true' but Request_Invoke_ID not zero,", dflag_verbose);
+                    show_diag(rname, " so now calling Transaction State Machine \"invoke id free\" routine,", dflag_verbose);
+
+                    show_diag(rname, "call to tsm_invoke_id_free(Request_Invoke_ID) returns true,", dflag_verbose);
+                    snprintf(lbuf, SIZE__DIAG_MESSAGE, "and Request_Invoke_ID presently = %d,", Request_Invoke_ID);
+                    show_diag(rname, lbuf, dflag_verbose);
+                    show_diag(rname, "breaking out of communications loop . . .", dflag_verbose);
+                    blank_line_out(rname, 1);
+                    break;
+                }
+
+                else if (tsm_invoke_id_failed(Request_Invoke_ID))
+                {
+                    fprintf(stderr, "\rError: TSM Timeout!\r\n");
+
+                    show_diag(rname, "call to tsm_invoke_id_failed(Request_Invoke_ID) returns true,", dflag_verbose);
+                    snprintf(lbuf, SIZE__DIAG_MESSAGE, "and Request_Invoke_ID presently = %d,", Request_Invoke_ID);
+                    show_diag(rname, lbuf, dflag_verbose);
+                    show_diag(rname, "setting Error_Detected to 'true',", dflag_verbose);
+                    show_diag(rname, "breaking out of communications loop . . .", dflag_verbose);
+
+                    tsm_free_invoke_id(Request_Invoke_ID);
+                    Error_Detected = true;
+
+                    blank_line_out(rname, 1);
+
+                    /* try again or abort? */
+                    break;
+                }
+            }
+            else
+            {
+                /* increment timer - exit if timed out */
+                elapsed_seconds += (current_seconds - last_seconds);
+                if (elapsed_seconds > timeout_seconds)
+                {
+                    printf("\rError: APDU Timeout!\r\n");
+                    Error_Detected = true;
+                    break;
+                }
+            }
+
+
+        /* returns 0 bytes on timeout */
+//        pdu_len = datalink_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
+
+            if ( 0 )
+            {
+                show_diag(rname, "calling datalink_receive(), really dlmstp_receive() . . .", dflag_comms_loop);
+                pdu_len = datalink_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
+            }
+            else
+            {
+                show_diag(rname, "calling dlmstp_receive() directly . . .", dflag_comms_loop);
+                pdu_len = dlmstp_receive(&src, &Rx_Buf[0], MAX_MPDU, timeout);
+            }
+
+
+        /* process */
+            show_diag(rname, "checking whether pdu_len not zero,", dflag_comms_loop);
+            if (pdu_len)
+            {
+                show_diag(rname, "pdu_len not zero, calling Kargs' routine npdu_handler() . . .", dflag_comms_loop);
+                npdu_handler(&src, &Rx_Buf[0], pdu_len);
+            }
+
+
+        /* keep track of time for next check */
+            last_seconds = current_seconds;
+
+
+
+// Ted's code . . .
+
+            ++loop_cycles_completed;
+
+
+        } // end WHILE-loop to realize BACnet communications
+
+    } // end 2017-04-19 WHILE-loop to iterate over communcations loop n times
+
+
+    show_diag(rname, "leaving main communcations loop test 3,", dflag_verbose);
+    show_diag(rname, "returning to caller . . .", dflag_announce);
+
+    return 0;
+
+} // end routine comms_test_3()
+
+
+
+
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // - SECTION - main line code
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -893,8 +1223,10 @@ int main(int argc, char** argv)
 
 
 
-    show_diag(rname, "calling communications test routine 2 . . .", dflag_verbose);
-    comms_test_2(argc, argv);
+//    show_diag(rname, "calling communications test routine 2 . . .", dflag_verbose);
+//    comms_test_2(argc, argv);
+    show_diag(rname, "calling communications test routine 3 . . .", dflag_verbose);
+    comms_test_3(argc, argv);
 
 
 
