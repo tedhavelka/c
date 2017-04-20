@@ -122,7 +122,7 @@
 #define MAX_LOOP_CYCLES_TO_EXECUTE (1000)  // as of 2017-04-06 morning was (30) - TMH
 
 // 2017-04-20 - added:
-#define TIMES_TO_REPEAT_COMMS_LOOP (10)
+#define TIMES_TO_REPEAT_COMMS_LOOP (40)
 
 
 
@@ -192,21 +192,6 @@ static RT_MUTEX Receive_Packet_Mutex;
 // - SECTION - function prototypes
 //----------------------------------------------------------------------
 
-/*
-static void get_abstime(
-    struct timespec *abstime,
-    unsigned long milliseconds)
-{
-    struct timeval now, offset, result;
-
-    gettimeofday(&now, NULL);
-    offset.tv_sec = 0;
-    offset.tv_usec = milliseconds * 1000;
-    timeradd(&now, &offset, &result);
-    abstime->tv_sec = result.tv_sec;
-    abstime->tv_nsec = result.tv_usec * 1000;
-}
-*/
 
 
 
@@ -221,74 +206,6 @@ extern uint16_t dlmstp_receive(
   unsigned timeout       /* milliseconds to wait for a packet */
 );
 
-
-
-
-/*
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-
-uint16_t dlmstp_receive(
-  BACNET_ADDRESS * src,  // / * source address * /
-  uint8_t * pdu,         // / * PDU data * /
-  uint16_t max_pdu,      // / * amount of space available in the PDU  * /
-  unsigned timeout       // / * milliseconds to wait for a packet * /
-)
-{
-    uint16_t pdu_len = 0;
-    struct timespec abstime;
-
-    (void) max_pdu;
-
-// diagnostics:
-    char lbuf[SIZE__DIAG_MESSAGE];
-    unsigned int dflag_verbose = DIAGNOSTICS_ON;
-
-    DIAG__SET_ROUTINE_NAME("dlmstp_receive()");
-
-
-    show_diag(rname, "starting,", dflag_verbose);
-
-//    / * see if there is a packet available, and a place
-//       to put the reply (if necessary) and process it * /
-    pthread_mutex_lock(&Receive_Packet_Mutex);
-    get_abstime(&abstime, timeout);
-    pthread_cond_timedwait(&Receive_Packet_Flag, &Receive_Packet_Mutex,
-        &abstime);
-
-    show_diag(rname, "checking whether Receive_Packet.ready is true,", dflag_verbose);
-    if (Receive_Packet.ready)
-    {
-        show_diag(rname, "checking whether Receive_Packet.pud_len is not zero,", dflag_verbose);
-        if (Receive_Packet.pdu_len)
-        {
-            MSTP_Packets++;
-            if (src)
-            {
-                show_diag(rname, "'src' passed by reference and not null, copying to 'src' receive packet address . . .", dflag_verbose);
-                memmove(src, &Receive_Packet.address, sizeof(Receive_Packet.address));
-            }
-
-            if (pdu)
-            {
-                show_diag(rname, "'pdu' passed by reference and not null, copying to 'pdu' receive packet PDU bytes . . .", dflag_verbose);
-                memmove(pdu, &Receive_Packet.pdu, sizeof(Receive_Packet.pdu));
-            }
-
-            pdu_len = Receive_Packet.pdu_len;
-        }
-
-        Receive_Packet.ready = false;
-    }
-
-    pthread_mutex_unlock(&Receive_Packet_Mutex);
-
-    snprintf(lbuf, SIZE__DIAG_MESSAGE, "returning pdu_len = %d to caller . . .", pdu_len);
-    show_diag(rname, lbuf, dflag_verbose);
-    return pdu_len;
-}
-
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-*/
 
 
 
@@ -337,44 +254,9 @@ void MyRejectHandler(
 
 
 
-
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// 2017-03-01 WED - Ted commenting out the following function
-//  prototypes as these functions are statically defined and therefore
-//  cannot be exposed and made available to our stub program, this
-//  program, which was trying to reach these functions in a shared
-//  object library:
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-// // extern static uint32_t Timer_Silence(void *pArg);   // <-- gcc error "multiple storage classes in declaration specifiers"
-// extern uint32_t Timer_Silence(void *pArg);
-//
-// extern void Timer_Silence_Reset(void);
-
-
-
-
 //----------------------------------------------------------------------
 // - SECTION - function definitions
 //----------------------------------------------------------------------
-
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-//
-
-// 2017-03-01 - NEED TO:  try commenting this out:
-
-
-// uint16_t MSTP_Get_Reply(
-//     volatile struct mstp_port_struct_t * mstp_port,
-//     unsigned timeout)
-// {       /* milliseconds to wait for a packet */
-//     (void) mstp_port;
-//     (void) timeout;
-//     return 0;
-// }
-
 
 
 
@@ -444,8 +326,8 @@ void My_Read_Property_Ack_Handler(
 
 
 //    char lbuf[SIZE__DIAG_MESSAGE];
-    unsigned int dflag_announce   = DIAGNOSTICS_ON;
-    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
+    unsigned int dflag_announce = DIAGNOSTICS_OFF;
+    unsigned int dflag_verbose = DIAGNOSTICS_OFF;
 
     DIAG__SET_ROUTINE_NAME("bacnet-stub copy of Kargs My_Read_Property_Ack_Handler()");
 
@@ -541,6 +423,62 @@ static void Init_Service_Handlers(void)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+//----------------------------------------------------------------------
+//  SECTION - reporting and diagnostics
+//----------------------------------------------------------------------
+
+int show_read_property_request_parameters(const char* caller)
+{
+
+// diagnostics:
+    char lbuf[SIZE__DIAG_MESSAGE];
+
+    unsigned int dflag_announce = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose = DIAGNOSTICS__SHOW_MESSAGE_ONLY;
+
+    DIAG__SET_ROUTINE_NAME("bacnet-stub show_read_property_request_parameters()");
+
+
+    show_diag(rname, "starting,", dflag_announce);
+
+//    show_diag(rname, "", dflag_verbose);
+    show_diag(rname, "-- SUMMARY -- parameters given to routine to send \"read property\" request:\n", dflag_verbose);
+
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Device_Object_Instance . . . %u\n", Target_Device_Object_Instance);
+    show_diag(rname, lbuf, dflag_verbose);
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Type  . . . . . . . . %u\n", Target_Object_Type);
+    show_diag(rname, lbuf, dflag_verbose);
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Instance  . . . . . . %u\n", Target_Object_Instance);
+    show_diag(rname, lbuf, dflag_verbose);
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "Target_Object_Property  . . . . . . %u\n", Target_Object_Property);
+    show_diag(rname, lbuf, dflag_verbose);
+
+
+    show_diag(rname, "done.", dflag_announce);
+
+    return 0;
+}
+
+
+
+
+
+
+//----------------------------------------------------------------------
+//  SECTION - tests
+//----------------------------------------------------------------------
 
 int comms_test_2(int argc, char** argv)
 {
@@ -867,16 +805,16 @@ int comms_test_3(int argc, char** argv)
 // + which changes its value at run time, and add some flexibility to
 // + the verbose level of diagnostics which Ted's "dflag" variables
 // + provide in a very simple way:
-    int routine_scoped_silence_flag = 1;
+    int routine_scoped_silence_flag = 0;
 
-    unsigned int dflag_announce   = DIAGNOSTICS_ON;
-    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
-    unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
-//    unsigned int dflag_announce   = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
-//    unsigned int dflag_verbose    = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
-//    unsigned int dflag_comms_loop = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+//    unsigned int dflag_announce   = DIAGNOSTICS_ON;
+//    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
+//    unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
+    unsigned int dflag_announce   = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+    unsigned int dflag_verbose    = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+    unsigned int dflag_comms_loop = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
 
-//    unsigned int dflag_mark = DIAGNOSTICS_ON;
+    unsigned int dflag_pause = DIAGNOSTICS_ON;
 
     DIAG__SET_ROUTINE_NAME("bacnet-stub comms_test_3()");
 
@@ -968,6 +906,28 @@ int comms_test_3(int argc, char** argv)
         found = 0;
 
         Request_Invoke_ID = 0;
+
+
+        if ( i > 2 )
+        {
+            Target_Device_Object_Instance = 133005;
+            Target_Object_Type = 0;
+            Target_Object_Instance = 1;
+            Target_Object_Property = 85;
+        }
+
+        show_read_property_request_parameters(rname);
+
+// If BACnet Object Type is of type OBJECT_ANALOG_INPUT, defined
+// in Kargs' open source project header file bacnet-stack-0.8.3//include/bacenum.h,
+// then pause a second to make readings changes easier to follow
+// for program developers:
+
+        if ( Target_Object_Type == OBJECT_ANALOG_INPUT )
+        {
+            show_diag(rname, "pausing a second for easier readings observations . . .", dflag_pause);
+            usleep(1000000);
+        }
 
 
         for (;;)
