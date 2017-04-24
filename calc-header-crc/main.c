@@ -1,0 +1,246 @@
+//----------------------------------------------------------------------
+//
+//  2017-01-17
+//
+//
+//  DESCRIPTION:
+//
+//    Test code to calculate BACnet header CRC, algorithms copied from
+//    Dave Bruno's BACnet implementation and then ported by Tom Almy
+//    to CWLP firmware cerca 2009.
+//
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//  TO-DO:
+//
+//  [ ]  2017-04-24 - To be more useful, Ted adding ability to pass this 
+//    program a text filename, which it may open, read and compute when
+//    possible the checksum of the hexadecimal encoded bytes in the
+//    given text file . . .
+//
+//
+//
+//  COMPILE STEPS:
+//
+//    gcc -Wall main.c
+//
+//
+//
+//  NOTE:  In calculating the BACnet header CRC, be sure to skip the
+//    preamble bytes 0x55 and 0xFF.  - TMH
+//
+//----------------------------------------------------------------------
+
+
+
+
+#include <stdlib.h>
+#include <stdio.h>
+
+
+
+enum crc_calculation_methods
+{
+    TABLE_LOOK_UP,
+    CALCULATE_VIA_XOR_OPERATIONS
+};
+
+
+
+
+// volatile uint8_t               ucBN_HeaderCRC;
+volatile unsigned char ucBN_HeaderCRC;
+
+
+
+// 2017-01-16 MON - this table of CRC calculating values taken from co2_protocol
+//  source file named bacnet_const.c:
+
+// static const PROGMEM uint16_t xpuiBACnet_Header_CRC_Table[] = { 
+static const short unsigned int xpuiBACnet_Header_CRC_Table[] = { 
+     0x0000, 0x00FE, 0x01FC, 0x0102, 0x03F8, 0x0306, 0x0204, 0x02FA, 
+     0x07F0, 0x070E, 0x060C, 0x06F2, 0x0408, 0x04F6, 0x05F4, 0x050A, 
+     0x0FE0, 0x0F1E, 0x0E1C, 0x0EE2, 0x0C18, 0x0CE6, 0x0DE4, 0x0D1A, 
+     0x0810, 0x08EE, 0x09EC, 0x0912, 0x0BE8, 0x0B16, 0x0A14, 0x0AEA, 
+     0x1FC0, 0x1F3E, 0x1E3C, 0x1EC2, 0x1C38, 0x1CC6, 0x1DC4, 0x1D3A, 
+     0x1830, 0x18CE, 0x19CC, 0x1932, 0x1BC8, 0x1B36, 0x1A34, 0x1ACA, 
+     0x1020, 0x10DE, 0x11DC, 0x1122, 0x13D8, 0x1326, 0x1224, 0x12DA, 
+     0x17D0, 0x172E, 0x162C, 0x16D2, 0x1428, 0x14D6, 0x15D4, 0x152A, 
+     0x3F80, 0x3F7E, 0x3E7C, 0x3E82, 0x3C78, 0x3C86, 0x3D84, 0x3D7A, 
+     0x3870, 0x388E, 0x398C, 0x3972, 0x3B88, 0x3B76, 0x3A74, 0x3A8A, 
+     0x3060, 0x309E, 0x319C, 0x3162, 0x3398, 0x3366, 0x3264, 0x329A, 
+     0x3790, 0x376E, 0x366C, 0x3692, 0x3468, 0x3496, 0x3594, 0x356A, 
+     0x2040, 0x20BE, 0x21BC, 0x2142, 0x23B8, 0x2346, 0x2244, 0x22BA, 
+     0x27B0, 0x274E, 0x264C, 0x26B2, 0x2448, 0x24B6, 0x25B4, 0x254A, 
+     0x2FA0, 0x2F5E, 0x2E5C, 0x2EA2, 0x2C58, 0x2CA6, 0x2DA4, 0x2D5A, 
+     0x2850, 0x28AE, 0x29AC, 0x2952, 0x2BA8, 0x2B56, 0x2A54, 0x2AAA, 
+     0x7F00, 0x7FFE, 0x7EFC, 0x7E02, 0x7CF8, 0x7C06, 0x7D04, 0x7DFA, 
+     0x78F0, 0x780E, 0x790C, 0x79F2, 0x7B08, 0x7BF6, 0x7AF4, 0x7A0A, 
+     0x70E0, 0x701E, 0x711C, 0x71E2, 0x7318, 0x73E6, 0x72E4, 0x721A, 
+     0x7710, 0x77EE, 0x76EC, 0x7612, 0x74E8, 0x7416, 0x7514, 0x75EA, 
+     0x60C0, 0x603E, 0x613C, 0x61C2, 0x6338, 0x63C6, 0x62C4, 0x623A, 
+     0x6730, 0x67CE, 0x66CC, 0x6632, 0x64C8, 0x6436, 0x6534, 0x65CA, 
+     0x6F20, 0x6FDE, 0x6EDC, 0x6E22, 0x6CD8, 0x6C26, 0x6D24, 0x6DDA, 
+     0x68D0, 0x682E, 0x692C, 0x69D2, 0x6B28, 0x6BD6, 0x6AD4, 0x6A2A, 
+     0x4080, 0x407E, 0x417C, 0x4182, 0x4378, 0x4386, 0x4284, 0x427A, 
+     0x4770, 0x478E, 0x468C, 0x4672, 0x4488, 0x4476, 0x4574, 0x458A, 
+     0x4F60, 0x4F9E, 0x4E9C, 0x4E62, 0x4C98, 0x4C66, 0x4D64, 0x4D9A, 
+     0x4890, 0x486E, 0x496C, 0x4992, 0x4B68, 0x4B96, 0x4A94, 0x4A6A, 
+     0x5F40, 0x5FBE, 0x5EBC, 0x5E42, 0x5CB8, 0x5C46, 0x5D44, 0x5DBA, 
+     0x58B0, 0x584E, 0x594C, 0x59B2, 0x5B48, 0x5BB6, 0x5AB4, 0x5A4A, 
+     0x50A0, 0x505E, 0x515C, 0x51A2, 0x5358, 0x53A6, 0x52A4, 0x525A, 
+     0x5750, 0x57AE, 0x56AC, 0x5652, 0x54A8, 0x5456, 0x5554, 0x55AA, 
+};
+
+
+
+
+
+#define FAST_BACNET_HEADER_CRC
+
+// //**************************************************************
+// static uint8_t ucBN_Calc_HeaderCRC(uint8_t ucData) {
+// //**************************************************************
+
+// static unsigned char ucBN_Calc_HeaderCRC(unsigned char ucData)
+static unsigned char ucBN_Calc_HeaderCRC(unsigned char ucData, unsigned char method_of_calculation )
+{
+
+//     uint16_t uiCRC;
+     short unsigned int uiCRC;
+     short unsigned int index;
+
+
+     printf("%s():  received byte of data holding %02X, ucBN_HeaderCRC holds %02X,\n", "ucBN_Calc_HeaderCRC", ucData, ucBN_HeaderCRC);
+
+     uiCRC =  ucData ^ ucBN_HeaderCRC;
+
+// #ifdef FAST_BACNET_HEADER_CRC
+//     uiCRC = uiCRC  ^ pgm_read_word(&xpuiBACnet_Header_CRC_Table[uiCRC]);
+
+    if ( method_of_calculation == TABLE_LOOK_UP )
+    {
+        printf("%s():  using CRC table,\n", "ucBN_Calc_HeaderCRC");
+        index = uiCRC;
+        uiCRC = uiCRC ^ xpuiBACnet_Header_CRC_Table[index];
+    }
+
+// #else // FAST_BACNET_HEADER_CRC
+    else
+    {
+        printf("%s():  calculating CRC via exclusive-OR operations . . .\n", "ucBN_Calc_HeaderCRC");
+        uiCRC = uiCRC ^ (uiCRC<<1) ^ (uiCRC<<2) ^ (uiCRC<<3) ^ (uiCRC<<4) ^ (uiCRC<<5) ^ (uiCRC<<6) ^ (uiCRC<<7);
+    }
+
+// #endif // FAST_BACNET_HEADER_CRC
+
+
+     printf("%s():  returning updated ucBN_HeaderCRC equal to %02X . . .\n", "ucBN_Calc_HeaderCRC", (uiCRC&0xFE) ^ ((uiCRC>>8)&1));
+
+     return (uiCRC&0xFE) ^ ((uiCRC>>8)&1);
+
+}
+
+
+
+
+int main (int argc, char* argv[])
+{
+
+//    unsigned char sample_crc = 0;
+
+    unsigned char bytes_of_header[] = {0x55, 0xFF, 0x02, 0x00, 0x09};   // should have CRC equal to 0xDA, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
+
+    printf("starting,\n");
+
+    printf("- TEST 1 -\n");
+    printf("initializing header CRC to 0xFF,\n");
+    ucBN_HeaderCRC = 0xFF;
+
+    printf("calling routine a few times, to calculate sample BACnet packet header CRC . . .\n");
+//    sample_crc = ucBN_Calc_HeaderCRC(1);
+//    sample_crc = ucBN_Calc_HeaderCRC(bytes_of_header[0]);
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0]);
+
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[3], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[4], TABLE_LOOK_UP);
+
+    printf("all bytes of header sent, final CRC value is %02X\n", ucBN_HeaderCRC);
+
+    printf("masking to least eight bits:\n");
+//    printf("masking all but lowest eight bits gives %02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
+
+    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+
+
+
+    printf("- TEST 2 -\n");
+    printf("initializing header CRC to 0xFF,\n");
+    ucBN_HeaderCRC = 0xFF;
+    printf("calling routine a few times, to calculate sample BACnet packet header CRC . . .\n");
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], CALCULATE_VIA_XOR_OPERATIONS);
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], CALCULATE_VIA_XOR_OPERATIONS);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], CALCULATE_VIA_XOR_OPERATIONS);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[3], CALCULATE_VIA_XOR_OPERATIONS);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[4], CALCULATE_VIA_XOR_OPERATIONS);
+    printf("masking to least eight bits:\n");
+    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
+    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+
+
+/*
+    printf("- TEST 3 -\n");
+    printf("initializing header CRC to 0xFF,\n");
+    ucBN_HeaderCRC = 0xFF;
+    printf("calling routine a few times, to calculate sample BACnet packet header CRC . . .\n");
+
+    bytes_of_header[0] = 0x55;   // should have CRC equal to 0xBB, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
+    bytes_of_header[1] = 0xFF;
+    bytes_of_header[2] = 0x06;
+    bytes_of_header[3] = 0x00;
+    bytes_of_header[4] = 0x00;
+
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[3], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[4], TABLE_LOOK_UP);
+    printf("masking to least eight bits:\n");
+    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
+    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+*/
+
+
+
+    printf("- TEST 4 -\n");
+    printf("initializing header CRC to 0xFF,\n");
+    ucBN_HeaderCRC = 0xFF;
+
+    printf("omitting preamble bytes 0x55 and 0xFF in calcuation,\n");
+    bytes_of_header[0] = 0x06;   // should have CRC equal to 0xBB, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
+    bytes_of_header[1] = 0x00;
+    bytes_of_header[2] = 0x00;
+
+    printf("calling routine to calculate sample BACnet packet header CRC . . .\n");
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
+    printf("masking to least eight bits:\n");
+    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
+    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+
+
+
+    printf("done.\n\n");
+    return 0;
+
+}
+
+
+
+
+// --- EOF ---
