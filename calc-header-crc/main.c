@@ -22,12 +22,24 @@
 //
 //  COMPILE STEPS:
 //
-//    gcc -Wall main.c
+//    $ gcc -Wall main.c
+//
+//    $ gcc -Wall -I/usr/local/include/libtestlib-0p1 main.c
+//
+//    $ gcc main.c -g3 -Wall -I/usr/local/include/libtestlib-0p1 -L/usr/local/lib/libtestlib-0p1 -ltestlib-0p1 -o a.out
 //
 //
 //
-//  NOTE:  In calculating the BACnet header CRC, be sure to skip the
+//  REFERENCES:
+//
+//    *  http://stackoverflow.com/questions/3889992/how-does-strtok-split-the-string-into-tokens-in-c
+//
+//
+//
+//  NOTES:  In calculating the BACnet header CRC, be sure to skip the
 //    preamble bytes 0x55 and 0xFF.  - TMH
+//
+//
 //
 //----------------------------------------------------------------------
 
@@ -38,6 +50,41 @@
 #include <stdio.h>
 
 
+// 2017-04-24 - Ted adding local diagnostics:
+
+#include <diagnostics.h>
+
+
+
+
+
+//----------------------------------------------------------------------
+//  - SECTION - pound defines
+//----------------------------------------------------------------------
+
+#define NUMBER_OF_FILE_LINES_STORABLE (1024)
+#define LENGTH_OF_TEXT_SUPPORTED (1024)
+#define NUMBER_OF_PROTOCOL_DATA_UNIT_BYTES_STORABLE (1024)
+
+#define DEFAULT_OPTION_OF_ZERO (0)
+
+
+
+
+//----------------------------------------------------------------------
+//  - SECTION - global variables, arrays, structures
+//----------------------------------------------------------------------
+
+char* text_file_lines[NUMBER_OF_FILE_LINES_STORABLE];
+
+unsigned char pdu_bytes[NUMBER_OF_PROTOCOL_DATA_UNIT_BYTES_STORABLE];
+
+
+
+
+//----------------------------------------------------------------------
+//  - SECTION - routine definitions
+//----------------------------------------------------------------------
 
 enum crc_calculation_methods
 {
@@ -57,7 +104,7 @@ volatile unsigned char ucBN_HeaderCRC;
 //  source file named bacnet_const.c:
 
 // static const PROGMEM uint16_t xpuiBACnet_Header_CRC_Table[] = { 
-static const short unsigned int xpuiBACnet_Header_CRC_Table[] = { 
+static const short unsigned int xpuiBACnet_Header_CRC_Table[] = {
      0x0000, 0x00FE, 0x01FC, 0x0102, 0x03F8, 0x0306, 0x0204, 0x02FA, 
      0x07F0, 0x070E, 0x060C, 0x06F2, 0x0408, 0x04F6, 0x05F4, 0x050A, 
      0x0FE0, 0x0F1E, 0x0E1C, 0x0EE2, 0x0C18, 0x0CE6, 0x0DE4, 0x0D1A, 
@@ -91,6 +138,165 @@ static const short unsigned int xpuiBACnet_Header_CRC_Table[] = {
      0x50A0, 0x505E, 0x515C, 0x51A2, 0x5358, 0x53A6, 0x52A4, 0x525A, 
      0x5750, 0x57AE, 0x56AC, 0x5652, 0x54A8, 0x5456, 0x5554, 0x55AA, 
 };
+
+
+
+
+
+//----------------------------------------------------------------------
+//
+//  2017-04-24 - Following code taken and adapted from example at 
+//
+//   *  http://stackoverflow.com/questions/3501338/c-read-file-line-by-line:
+//
+//----------------------------------------------------------------------
+
+// int read_text_file(void)
+int read_text_file(const char* caller, const char* filename)
+{
+    FILE * fp;
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    unsigned int line_index = 0;
+
+// diagnostics:
+
+//    char lbuf[SIZE__DIAG_MESSAGE];
+
+    unsigned int dflag_warning = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("read_text_file");
+
+
+
+//    fp = fopen("/etc/motd", "r");
+    fp = fopen(filename, "r");
+
+    if (fp == NULL)
+    {
+//        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
+    }
+
+
+
+// top-of-loop preparations, loop to read file line by line:
+
+    line_index = 0;
+
+
+    while ((read = getline(&line, &len, fp)) != -1)
+    {
+        printf("Retrieved line of length %zu :\n", read);
+        printf("%s", line);
+
+// - STEP - store line from text file
+        if ( line_index < NUMBER_OF_FILE_LINES_STORABLE )
+        {
+            text_file_lines[line_index] = calloc(LENGTH_OF_TEXT_SUPPORTED, sizeof(char));
+
+            if ( text_file_lines[line_index] != NULL )
+            {
+                snprintf(text_file_lines[line_index], (LENGTH_OF_TEXT_SUPPORTED - 1), "%s", line);
+
+                ++line_index;
+            }
+            else
+            {
+                show_diag(rname, "WARNING - not able to allocate memory to store line of text from file!", dflag_warning);
+            }
+        }
+
+
+// - STEP - parse line from text file
+
+    }
+
+
+    fclose(fp);
+
+    if (line)
+    {
+        free(line);
+    }
+
+//    exit(EXIT_SUCCESS);
+    return EXIT_SUCCESS;
+
+} // end routine read_text_file()
+
+
+
+
+int show_lines_from_file(const char* caller, const int option)
+{
+
+//    unsigned int line_not_zero_length = 0;
+    unsigned int index_to_line = 0;
+
+// diagnostics:
+    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_announce = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+//    unsigned int dflag_warning = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("show_lines_from_file");
+
+
+    show_diag(rname, "starting,", dflag_announce);
+    show_diag(rname, "--  Summary of lines read from text file:  --", dflag_verbose);
+
+
+//    line_not_zero_length = strlen(text_file_lines[index_to_line]);
+
+//    while (( line_not_zero_length ) && ( index_to_line < NUMBER_OF_FILE_LINES_STORABLE ))
+    while (( text_file_lines[index_to_line] != NULL ) && ( index_to_line < NUMBER_OF_FILE_LINES_STORABLE ))
+    {
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "%*u:  %s", 5, index_to_line, text_file_lines[index_to_line]);
+        printf("%s", lbuf);
+        ++index_to_line;
+//        line_not_zero_length = strlen(text_file_lines[index_to_line]);
+    }
+
+
+    show_diag(rname, "done.", dflag_announce);
+
+    return 0;
+
+} // end routine show_lines_from_file()
+
+
+
+
+int free_memory_holding_text_file_data(const char* caller)
+{
+
+    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_announce = DIAGNOSTICS_ON;
+//    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("free_memory_holding_text_file_data");
+
+
+    show_diag(rname, "starting,", dflag_announce);
+    unsigned int index_to_line = 0;
+
+    while ( text_file_lines[index_to_line] != NULL )
+    {
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "freeing text line %u holding:  %s", index_to_line, text_file_lines[index_to_line]);
+        printf("%s", lbuf);
+        free(text_file_lines[index_to_line]);
+        ++index_to_line;
+    }
+
+    show_diag(rname, "done.", dflag_announce);
+    return 0;
+}
+
+
+
 
 
 
@@ -139,7 +345,8 @@ static unsigned char ucBN_Calc_HeaderCRC(unsigned char ucData, unsigned char met
 
      return (uiCRC&0xFE) ^ ((uiCRC>>8)&1);
 
-}
+} // end routine ucBN_Calc_HeaderCRC() 
+
 
 
 
@@ -147,11 +354,81 @@ static unsigned char ucBN_Calc_HeaderCRC(unsigned char ucData, unsigned char met
 int main (int argc, char* argv[])
 {
 
-//    unsigned char sample_crc = 0;
+
+// diagnostics:
+//    char lbuf[SIZE__DIAG_MESSAGE];
+
+    unsigned int dflag_announce = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("main");
+
+
 
     unsigned char bytes_of_header[] = {0x55, 0xFF, 0x02, 0x00, 0x09};   // should have CRC equal to 0xDA, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
 
-    printf("starting,\n");
+    show_diag(rname, "starting,", dflag_announce);
+
+
+
+    printf("- TEST 4 -\n");
+    printf("initializing header CRC to 0xFF,\n");
+    ucBN_HeaderCRC = 0xFF;
+
+    printf("omitting preamble bytes 0x55 and 0xFF in calcuation,\n");
+    bytes_of_header[0] = 0x06;   // should have CRC equal to 0xBB, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
+    bytes_of_header[1] = 0x00;
+    bytes_of_header[2] = 0x00;
+
+    printf("calling routine to calculate sample BACnet packet header CRC . . .\n");
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
+    printf("masking to least eight bits:\n");
+    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
+    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+
+
+
+    read_text_file(rname, "read-property-request-to-device-081064.txt");
+
+    show_lines_from_file(rname, DEFAULT_OPTION_OF_ZERO);
+
+    free_memory_holding_text_file_data(rname);
+
+    show_lines_from_file(rname, DEFAULT_OPTION_OF_ZERO);
+
+
+
+//    printf("done.\n\n");
+    show_diag(rname, "done.", dflag_announce);
+
+    return 0;
+
+} // end routine main()
+
+
+
+
+
+
+
+//----------------------------------------------------------------------
+//  - SECTION - code from earlier development steps
+//----------------------------------------------------------------------
+
+int old_tests()
+{
+
+// should have CRC equal to 0xDA, per document "bacnet-encoding.rtf" or
+// "Encoding.doc" page 4 of 42:
+
+    unsigned char bytes_of_header[] = {0x55, 0xFF, 0x02, 0x00, 0x09};
+
+
+    DIAG__SET_ROUTINE_NAME("old_tests");
+
+
 
     printf("- TEST 1 -\n");
     printf("initializing header CRC to 0xFF,\n");
@@ -215,30 +492,10 @@ int main (int argc, char* argv[])
 */
 
 
-
-    printf("- TEST 4 -\n");
-    printf("initializing header CRC to 0xFF,\n");
-    ucBN_HeaderCRC = 0xFF;
-
-    printf("omitting preamble bytes 0x55 and 0xFF in calcuation,\n");
-    bytes_of_header[0] = 0x06;   // should have CRC equal to 0xBB, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
-    bytes_of_header[1] = 0x00;
-    bytes_of_header[2] = 0x00;
-
-    printf("calling routine to calculate sample BACnet packet header CRC . . .\n");
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
-    printf("masking to least eight bits:\n");
-    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
-    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
-
-
-
-    printf("done.\n\n");
     return 0;
 
-}
+} // end of routine old_tests()
+
 
 
 
