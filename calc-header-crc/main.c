@@ -69,6 +69,12 @@
 #define DEFAULT_OPTION_OF_ZERO (0)
 
 
+// 2017-04-27 - Added by Ted:
+#define SIZE_OF_LINE_SUPPORTED (1024)
+
+#define BASE_16_TO_CONVERT_FROM_HEXADECIMAL (16)
+
+
 
 
 //----------------------------------------------------------------------
@@ -254,7 +260,7 @@ int show_lines_from_file(const char* caller, const int option)
 //    while (( line_not_zero_length ) && ( index_to_line < NUMBER_OF_FILE_LINES_STORABLE ))
     while (( text_file_lines[index_to_line] != NULL ) && ( index_to_line < NUMBER_OF_FILE_LINES_STORABLE ))
     {
-        snprintf(lbuf, SIZE__DIAG_MESSAGE, "%*u:  %s", 5, index_to_line, text_file_lines[index_to_line]);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "%*u:  %s\n", 5, index_to_line, text_file_lines[index_to_line]);
         printf("%s", lbuf);
         ++index_to_line;
 //        line_not_zero_length = strlen(text_file_lines[index_to_line]);
@@ -288,6 +294,7 @@ int free_memory_holding_text_file_data(const char* caller)
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "freeing text line %u holding:  %s", index_to_line, text_file_lines[index_to_line]);
         printf("%s", lbuf);
         free(text_file_lines[index_to_line]);
+        text_file_lines[index_to_line] = NULL;
         ++index_to_line;
     }
 
@@ -295,6 +302,134 @@ int free_memory_holding_text_file_data(const char* caller)
     return 0;
 }
 
+
+
+
+int break_lines_into_tokens(const char* caller)
+{
+//----------------------------------------------------------------------
+//
+//  PURPOSE:  to tokenize and intergerize lines from a text file, lines
+//   stored in a program-scoped array.  This program parses lines
+//   with expectation that the tokens represent hexadecimal encoded
+//   bytes of a BACnet APDU, or Application Protocol Data Unit.  - TMH
+//
+//
+//  HOW THIS ROUTINE WORKS:
+//
+//   This routine looks for non-null string pointers in program
+//   calc-header-crc -- this program's -- array of strings to hold
+//   text file lines.  Data structures accessed include the following
+//   global arrays . . .
+//
+//     *  char* text_file_lines[NUMBER_OF_FILE_LINES_STORABLE]
+//
+//     *  unsigned char pdu_bytes[NUMBER_OF_PROTOCOL_DATA_UNIT_BYTES_STORABLE]
+//
+//
+//   Sample code taken from forum at http://stackoverflow.com/questions/3889992/how-does-strtok-split-the-string-into-tokens-in-c . . .
+//
+//      char str[] = "this, is the string - I want to parse";
+//      char delim[] = " ,-";
+//      char* token;
+//
+//      for (token = strtok(str, delim); token; token = strtok(NULL, delim))
+//      {
+//          printf("token=%s\n", token);
+//      }
+//
+//
+//
+//
+//----------------------------------------------------------------------
+
+// line variables:
+    unsigned int index_to_line = 0;
+
+    char line[SIZE_OF_LINE_SUPPORTED];
+    memset(line, 0, SIZE_OF_LINE_SUPPORTED);
+
+// token variables:
+    char delimiter[] = " ";
+
+    char* token;
+
+// parsing variables:
+    long int integer_from_c_strtol = 0;
+
+    char** endptr = NULL;   // see `man s 3 strtol`
+
+    unsigned int index_to_byte = 0;
+
+
+// diagnostics:
+
+    char lbuf[SIZE__DIAG_MESSAGE];
+
+    unsigned int dflag_announce = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("break_lines_into_tokens");
+
+
+    show_diag(rname, "starting,", dflag_announce);
+
+//    index_to_line = 0;
+    index_to_byte = 0;
+
+
+    while ( ( text_file_lines[index_to_line] != NULL ) && ( index_to_line < NUMBER_OF_FILE_LINES_STORABLE ) )
+    {
+        strncpy(line, text_file_lines[index_to_line], SIZE_OF_LINE_SUPPORTED);
+
+        for (token = strtok(line, delimiter); token; token = strtok(NULL, delimiter))
+        {
+
+// process tokens from line of file here:
+
+//            snprintf(lbuf, SIZE__DIAG_MESSAGE, "line %d:  %s", index_to_line, token);
+//            show_diag(rname, lbuf, dflag_verbose);
+
+            integer_from_c_strtol = strtol(token, endptr, BASE_16_TO_CONVERT_FROM_HEXADECIMAL);
+
+// When C funtion "C to long" returns string with length greater than
+// zero, and end pointer holds '\0' then strtol succeeded in parsing
+// a number from the string it most recently got:
+
+//            if ( ( strlen(token) > 0 ) && ( *endptr == '\0' ) )
+            if ( ( strlen(token) > 0 ) && ( endptr == '\0' ) )
+            {
+                pdu_bytes[index_to_byte] = ( integer_from_c_strtol & 0xFF );
+
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "storing BACnet PDU byte '%X' in array element pdu_bytes[%d],",
+                  pdu_bytes[index_to_byte], index_to_byte);
+                show_diag(rname, lbuf, dflag_verbose);
+
+                ++index_to_byte;
+            }
+            else
+            {
+                // --- token was not a valid hexadecimal number ---
+            }
+
+        }
+
+        blank_line_out(rname, 1);
+
+        ++index_to_line;
+    }
+
+
+
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    show_diag(rname, "done.", dflag_announce);
+
+    return 0;
+
+} // end routine break_lines_into_tokens()
 
 
 
@@ -359,7 +494,7 @@ int main (int argc, char* argv[])
 //    char lbuf[SIZE__DIAG_MESSAGE];
 
     unsigned int dflag_announce = DIAGNOSTICS_ON;
-    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+//    unsigned int dflag_verbose = DIAGNOSTICS_ON;
 
     DIAG__SET_ROUTINE_NAME("main");
 
@@ -393,6 +528,8 @@ int main (int argc, char* argv[])
     read_text_file(rname, "read-property-request-to-device-081064.txt");
 
     show_lines_from_file(rname, DEFAULT_OPTION_OF_ZERO);
+
+    break_lines_into_tokens(rname);
 
     free_memory_holding_text_file_data(rname);
 
