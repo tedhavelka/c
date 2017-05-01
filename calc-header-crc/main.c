@@ -294,7 +294,12 @@ int free_memory_holding_text_file_data(const char* caller)
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "freeing text line %u holding:  %s", index_to_line, text_file_lines[index_to_line]);
         printf("%s", lbuf);
         free(text_file_lines[index_to_line]);
+
+// 2017-04-27 - Some debate about whether to set freed C lanuguage pointers
+//  to null after freeing;  see "http://stackoverflow.com/questions/1879550/should-one-really-set-pointers-to-null-after-freeing-them"
         text_file_lines[index_to_line] = NULL;
+
+// move to next line . . .
         ++index_to_line;
     }
 
@@ -491,10 +496,10 @@ int main (int argc, char* argv[])
 
 
 // diagnostics:
-//    char lbuf[SIZE__DIAG_MESSAGE];
+    char lbuf[SIZE__DIAG_MESSAGE];
 
     unsigned int dflag_announce = DIAGNOSTICS_ON;
-//    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
 
     DIAG__SET_ROUTINE_NAME("main");
 
@@ -537,7 +542,26 @@ int main (int argc, char* argv[])
 
 
 
-//    printf("done.\n\n");
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// 2017-04-28 - We need a routine to calculate the checksum of n bytes
+//  in this program's globally scoped array named pdu_bytes[].  Also
+//  it would be handy to have a table -- an array -- of BACnet data
+//  packets.  The table could hold the length of the packet, its
+//  frame number, and the name of the network traffic capture file
+//  from which the packet is read . . .
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    {
+        for ( int i = 0; i < 45; ++i )
+        {
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "sending PDU byte %d to CRC calculating routine . . .", i);
+            show_diag(rname, lbuf, dflag_verbose);
+
+            ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(pdu_bytes[i], CALCULATE_VIA_XOR_OPERATIONS);
+        }
+    }
+
+
     show_diag(rname, "done.", dflag_announce);
 
     return 0;
