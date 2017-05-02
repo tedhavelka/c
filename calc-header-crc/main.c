@@ -69,11 +69,13 @@
 #define DEFAULT_OPTION_OF_ZERO (0)
 
 
-// 2017-04-27 - Added by Ted:
+// 2017-04-27 - added by Ted . . .
 #define SIZE_OF_LINE_SUPPORTED (1024)
 
 #define BASE_16_TO_CONVERT_FROM_HEXADECIMAL (16)
 
+// 2017-05-01 - added by Ted . . .
+#define SIZE__FILENAME (256)
 
 
 
@@ -84,6 +86,11 @@
 char* text_file_lines[NUMBER_OF_FILE_LINES_STORABLE];
 
 unsigned char pdu_bytes[NUMBER_OF_PROTOCOL_DATA_UNIT_BYTES_STORABLE];
+
+char global_filename__pdu_data_file[SIZE__FILENAME];
+
+
+
 
 
 
@@ -491,6 +498,240 @@ static unsigned char ucBN_Calc_HeaderCRC(unsigned char ucData, unsigned char met
 
 
 
+int parse_pdu_data_from_command_line(const char* caller, int argc, char* argv[])
+{
+//----------------------------------------------------------------------
+//
+//  PURPOSE:  This routine called when the command line option -d or
+//   --data is found.  This routine parses successive arguments
+//   expecting them to be in hexadecimal byte format . . .     - TMH
+//
+//
+//
+//
+//----------------------------------------------------------------------
+
+// local index to step through command line arguments:
+    int index_to_arguments = 2;
+
+// local index to global PDU byte array:
+    int index_to_pdu_byte_array = 0;
+
+
+// local string used to hold copy of and thereby preserve argv[] arguments:
+    char token[SIZE__TOKEN];
+
+// local pointer to pointer to char used in call to C strtol() library routine:
+    char** endptr = NULL;   // see `man s 3 strtol`
+
+// local long integer to hold valid parsed PDU bytes from command line arguments:
+    long int latest_pdu_byte = 0;
+
+// count of bytes successfully parsed:
+    int count_pdu_bytes_parsed = 0;
+
+
+    int flag_malformed_byte_found = 0;
+
+
+// diagnostics:
+    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_announce = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+    unsigned int dflag_warning = DIAGNOSTICS_ON;
+    DIAG__SET_ROUTINE_NAME("parse_pdu_data_from_command_line");
+
+
+    show_diag(rname, "starting,", dflag_announce);
+
+    if ( argc < 2 )
+    {
+        // no bytes to parse if zeroeth and first arguments are all that are present
+    }
+    else
+    {
+        for ( index_to_arguments = 2; index_to_arguments < argc; ++index_to_arguments )
+        {
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "parsing argv[%d] = %s,", index_to_arguments,
+              argv[index_to_arguments]);
+            show_diag(rname, lbuf, dflag_verbose);
+
+// NOTE:  C strtol() routine affects the string token it parses, so here
+//  send strtol() a copy of present argv[] element:
+            strncpy(token, argv[index_to_arguments], SIZE__TOKEN);
+
+            latest_pdu_byte = strtol(token, endptr, BASE_16_TO_CONVERT_FROM_HEXADECIMAL);
+
+            if ( ( strlen(token) > 0 ) && ( endptr == '\0' ) )
+            {
+                pdu_bytes[index_to_pdu_byte_array] = latest_pdu_byte;
+                ++index_to_pdu_byte_array;
+            }
+            else
+            {
+                ++flag_malformed_byte_found;
+            }
+
+        } // end FOR-loop to step through command line arguments 2 to ending
+
+    } // end IF-ELSE block to parse when there are three or more command line arguments
+
+
+    if ( flag_malformed_byte_found )
+    {
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "WARNING - found %d command line arguments which don't parse as hexadecimal byte values,",
+          flag_malformed_byte_found);
+        show_diag(rname, lbuf, dflag_warning);
+        show_diag(rname, "WARNING - stored as many valid bytes in PDU byte array as possible,", dflag_warning);
+        show_diag(rname, "WARNING - yet final CRC calculation may not turn out as expected.", dflag_warning);
+        show_diag(rname, "WARNING - Recommand checking byte values entered at most recent", dflag_warning);
+        show_diag(rname, "WARNING - invocation of this program.", dflag_warning);
+    }
+
+
+    show_diag(rname, "done.", dflag_announce);
+    return count_pdu_bytes_parsed;
+
+}
+
+
+
+
+
+int parse_command_line_arguments(const char* caller, int argc, char* argv[])
+{
+//----------------------------------------------------------------------
+//
+//  STARTED:  2017-05-01
+//
+//  PURPOSE:  to parse first command line argument passed to this
+//    program.  This program supports an option given by the user in
+//    the first argument.  Options supported include,
+//
+//    -f --file    . . . read PDU data from file,
+//
+//    -d --data    . . . read PDU data from command line arguments,
+//
+//
+//
+//  RETURNS:  number of command line arguments parsed
+//
+//
+//
+//----------------------------------------------------------------------
+
+
+#define INDEX_TO_ARG_HOLDING_OPTION (1)
+#define INDEX_TO_ARG_HOLDING_DATA_FILENAME (2)
+
+
+
+enum supported_options
+{
+    OPTION__READ_FILE,
+    OPTION__DATA_ON_COMMAND_LINE
+};
+
+
+    int option_parsed = 0;
+
+    int count_arguments_parsed = 0;
+
+
+// diagnostics:
+    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_announce = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+    unsigned int dflag_warning = DIAGNOSTICS_ON;
+    DIAG__SET_ROUTINE_NAME("parse_command_line_arguments");
+
+
+
+    show_diag(rname, "starting,", dflag_announce);
+
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "argc holds %d,", argc);
+    show_diag(rname, lbuf, dflag_verbose);
+
+
+//
+// Supported command line arguments will be either one of,
+//
+//     <program name> [ -f | --file ] <filename>
+//
+//       - or -
+//
+//     <program name> [ -d | --data ] [byte_1 byte_2 . . . byte_n]
+//
+
+    if ( argc < 3 )
+    {
+        count_arguments_parsed = 0;
+    }
+    else
+    {
+//        if ( ( strncmp(argv[1], "-f", strlen("-f")) == 0 ) || ( strncmp(argv[1], "--file", strlen("--file")) == 0 ) )
+        if ( ( strncmp(argv[INDEX_TO_ARG_HOLDING_OPTION], "-f", strlen("-f")) == 0 ) || ( strncmp(argv[INDEX_TO_ARG_HOLDING_OPTION], "--file", strlen("--file")) == 0 ) )
+        {
+            option_parsed = OPTION__READ_FILE;
+        }
+
+        if ( ( strncmp(argv[INDEX_TO_ARG_HOLDING_OPTION], "-d", strlen("-d")) == 0 ) || ( strncmp(argv[INDEX_TO_ARG_HOLDING_OPTION], "--data", strlen("--data")) == 0 ) )
+        {
+            option_parsed = OPTION__DATA_ON_COMMAND_LINE;
+        }
+    }
+
+
+
+    switch(option_parsed)
+    {
+        case OPTION__READ_FILE:
+        {
+            strncpy(global_filename__pdu_data_file, argv[INDEX_TO_ARG_HOLDING_DATA_FILENAME], SIZE__FILENAME);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "from command line arguments parsed user data filename '%s',",
+              global_filename__pdu_data_file);
+            show_diag(rname, lbuf, dflag_verbose);
+
+//            show_diag(rname, "- - -  REMAINDER OF CASE STATEMENT NOT FULLY IMPLEMENTED YET - TMH  - - -", dflag_verbose);
+//            read_text_file(rname, "read-property-request-to-device-081064.txt");
+            read_text_file(rname, global_filename__pdu_data_file);
+        }
+        break;
+
+
+        case OPTION__DATA_ON_COMMAND_LINE:
+        {
+            parse_pdu_data_from_command_line(rname, argc, argv);
+        }
+        break;
+
+
+        default:
+        {
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "WARNING - encountered unsupported option '%s',",
+              argv[INDEX_TO_ARG_HOLDING_OPTION]);
+            show_diag(rname, lbuf, dflag_warning);
+        }
+        break;
+
+    }
+
+
+    show_diag(rname, "done.", dflag_announce);
+
+    return count_arguments_parsed;
+
+
+#undef INDEX_TO_ARG_HOLDING_DATA_FILENAME
+#undef INDEX_TO_ARG_HOLDING_OPTION
+
+}
+
+
+
+
+
+
 int main (int argc, char* argv[])
 {
 
@@ -511,26 +752,37 @@ int main (int argc, char* argv[])
 
 
 
-    printf("- TEST 4 -\n");
-    printf("initializing header CRC to 0xFF,\n");
-    ucBN_HeaderCRC = 0xFF;
+// 2017-05-01 - Ted adding command line arguments parsing . . .
 
-    printf("omitting preamble bytes 0x55 and 0xFF in calcuation,\n");
-    bytes_of_header[0] = 0x06;   // should have CRC equal to 0xBB, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
-    bytes_of_header[1] = 0x00;
-    bytes_of_header[2] = 0x00;
-
-    printf("calling routine to calculate sample BACnet packet header CRC . . .\n");
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
-    printf("masking to least eight bits:\n");
-    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
-    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+    parse_command_line_arguments(rname, argc, argv);
 
 
 
-    read_text_file(rname, "read-property-request-to-device-081064.txt");
+
+    if ( 0 )
+    {
+        printf("- TEST 4 -\n");
+        printf("initializing header CRC to 0xFF,\n");
+        ucBN_HeaderCRC = 0xFF;
+
+        printf("omitting preamble bytes 0x55 and 0xFF in calcuation,\n");
+        bytes_of_header[0] = 0x06;   // should have CRC equal to 0xBB, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
+        bytes_of_header[1] = 0x00;
+        bytes_of_header[2] = 0x00;
+
+        printf("calling routine to calculate sample BACnet packet header CRC . . .\n");
+        ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
+        ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
+        ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
+        printf("masking to least eight bits:\n");
+        printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
+        printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+    }
+
+
+
+
+//    read_text_file(rname, "read-property-request-to-device-081064.txt");
 
     show_lines_from_file(rname, DEFAULT_OPTION_OF_ZERO);
 
