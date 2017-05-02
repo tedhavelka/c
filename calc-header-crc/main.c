@@ -804,7 +804,8 @@ int main (int argc, char* argv[])
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     {
-        for ( int i = 0; i < 45; ++i )
+//        for ( int i = 0; i < 45; ++i )
+        for ( int i = 0; i < 9; ++i )
         {
             snprintf(lbuf, SIZE__DIAG_MESSAGE, "sending PDU byte %d to CRC calculating routine . . .", i);
             show_diag(rname, lbuf, dflag_verbose);
@@ -813,6 +814,9 @@ int main (int argc, char* argv[])
         }
     }
 
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "CRC after taking binary one's compliment and bit-wise ANDing is 0x%02X,\n\n",
+      ( ~ucBN_HeaderCRC & 0xFF ));
+    show_diag(rname, lbuf, dflag_verbose);
 
     show_diag(rname, "done.", dflag_announce);
 
@@ -864,7 +868,7 @@ int old_tests()
 //    printf("masking all but lowest eight bits gives %02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
     printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
 
-    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+    printf("header CRC value after taking binary one's compliment and bit-wise ANDing is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
 
 
 
