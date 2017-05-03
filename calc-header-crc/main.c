@@ -1109,13 +1109,16 @@ int main (int argc, char* argv[])
 
 //    read_text_file(rname, "read-property-request-to-device-081064.txt");
 
-    show_lines_from_file(rname, DEFAULT_OPTION_OF_ZERO);
+    if ( 0 )
+    {
+        show_lines_from_file(rname, DEFAULT_OPTION_OF_ZERO);
 
-    break_lines_into_tokens(rname);
+        break_lines_into_tokens(rname);
 
-    free_memory_holding_text_file_data(rname);
+        free_memory_holding_text_file_data(rname);
 
-    show_lines_from_file(rname, DEFAULT_OPTION_OF_ZERO);
+        show_lines_from_file(rname, DEFAULT_OPTION_OF_ZERO);
+    }
 
 
 
@@ -1129,13 +1132,21 @@ int main (int argc, char* argv[])
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     {
+        printf("- TEST 5 -\n");
+        printf("initializing header CRC to 0xFF,\n");
+        ucBN_HeaderCRC = 0xFF;
+
 //        for ( int i = 0; i < 45; ++i )
         for ( int i = 0; i < 9; ++i )
         {
-            snprintf(lbuf, SIZE__DIAG_MESSAGE, "sending PDU byte %d to CRC calculating routine . . .", i);
-            show_diag(rname, lbuf, dflag_verbose);
+//            snprintf(lbuf, SIZE__DIAG_MESSAGE, "sending PDU byte %d to CRC calculating routine . . .", i);
+//            show_diag(rname, lbuf, dflag_verbose);
 
             ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(pdu_bytes[i], CALCULATE_VIA_XOR_OPERATIONS);
+
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "sending pdu_byte[%u] = 0x%02X to CRC calculator . . . present CRC is 0x%02X",
+              i, pdu_bytes[i], (~ucBN_HeaderCRC & 0xFF));
+            show_diag(rname, lbuf, dflag_verbose);
         }
     }
 
