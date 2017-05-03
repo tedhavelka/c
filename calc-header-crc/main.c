@@ -83,21 +83,34 @@
 //  - SECTION - global variables, arrays, structures
 //----------------------------------------------------------------------
 
-char* text_file_lines[NUMBER_OF_FILE_LINES_STORABLE];
+// 2015-07-02 - Added by Ted, testing alternate possibly more
+//  centralized way to control diagnostics verbose levels on per
+//  routine basis:
 
-unsigned char pdu_bytes[NUMBER_OF_PROTOCOL_DATA_UNIT_BYTES_STORABLE];
+unsigned int global_bit_wise_diagnostics_flags_0_through_31 = 0;
 
-char global_filename__pdu_data_file[SIZE__FILENAME];
+// 2017-05-02 - a standard C integer is four bytes, or thirty two bits,
+//  so we'll start out using a single integer to support thirty two
+//  (32) bit-wise flags for routines of this program . . .
+
+enum local_routine_identifiers_0_through_31   // <-- DFLAGS --
+{
+    ROUTINE__MAIN = 1,
+    ROUTINE__PARSE_COMMAND_LINE_ARGUMENTS = 2,
+    ROUTINE__PARSE_PDU_DATA_FROM_COMMAND_LINE = 4,
+    ROUTINE__BREAK_LINES_INTO_TOKENS = 8,
+    ROUTINE__FREE_MEMORY_HOLDING_TEXT_FILE_DATA = 16,
+    ROUTINE__UCBN_CALC_HEADERCRC = 32,
+};
 
 
 
 
-
-
-
-//----------------------------------------------------------------------
-//  - SECTION - routine definitions
-//----------------------------------------------------------------------
+// Note:  Dave Bruno's BACnet implementation makes use of a fast table
+//  look up method to figure 16-bit CRCs, and also an XOR based method
+//  to compute the same CRCs.  Ted testing both methods as a sanity
+//  check and to see them work in equivalent fashion:
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 enum crc_calculation_methods
 {
@@ -107,6 +120,24 @@ enum crc_calculation_methods
 
 
 
+
+// Note:  following global variables support this program's ability
+//  to read data from a single text file.  Not scalable but good enough
+//  to offer a reasonable way to get larger BACnet data packets into
+//  the program rather than hard-coding or typing them in as command
+//  line arguments . . .                                       - TMH
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+char global_filename__pdu_data_file[SIZE__FILENAME];
+
+char* text_file_lines[NUMBER_OF_FILE_LINES_STORABLE];
+
+unsigned char pdu_bytes[NUMBER_OF_PROTOCOL_DATA_UNIT_BYTES_STORABLE];
+
+
+
+
+// This variable taken from Dave Bruno's code:
 
 // volatile uint8_t               ucBN_HeaderCRC;
 volatile unsigned char ucBN_HeaderCRC;
@@ -151,6 +182,341 @@ static const short unsigned int xpuiBACnet_Header_CRC_Table[] = {
      0x50A0, 0x505E, 0x515C, 0x51A2, 0x5358, 0x53A6, 0x52A4, 0x525A, 
      0x5750, 0x57AE, 0x56AC, 0x5652, 0x54A8, 0x5456, 0x5554, 0x55AA, 
 };
+
+
+
+
+//----------------------------------------------------------------------
+//  - section - routine prototypes
+//----------------------------------------------------------------------
+
+//
+// 2017-05-02 - Ted noting that with static routine definitions,
+//  a routine prototype doesn't make syntactical or rule-wise sense
+//  at compile time.  The compiler interprets the prototype as a full
+//  routine definition, and then complains of a twice-defined routine
+//  when it encounters the definition after the prototype.  Ted yet
+//  learning simple things about C and compile time issues . . . TMH
+//
+
+// static unsigned char ucBN_Calc_HeaderCRC(const unsigned int, const unsigned int);
+
+void show_binary_number(const char* caller, int number_to_show);
+
+int diagnostics_flag_set(const char* caller, int local_routine_identifier);
+int diagnostics_flag_reset(const char* caller, int local_routine_identifier);
+int diagnostics_flag_value(const char* caller, int local_routine_identifier);
+
+
+
+
+//----------------------------------------------------------------------
+//  - SECTION - routine definitions
+//----------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------
+//  - SECTION - static routines
+//----------------------------------------------------------------------
+
+#define FAST_BACNET_HEADER_CRC
+
+// //**************************************************************
+// static uint8_t ucBN_Calc_HeaderCRC(uint8_t ucData) {
+// //**************************************************************
+
+// static unsigned char ucBN_Calc_HeaderCRC(unsigned char ucData)
+static unsigned char ucBN_Calc_HeaderCRC(unsigned char ucData, unsigned char method_of_calculation)
+{
+//----------------------------------------------------------------------
+//
+//  2017-05-02 - This routine from Dave Bruno's BACnet part of firmware
+//   from cerca 2005 work.  Just calculates a 16-bit CRC and in this
+//   sense is not BACnet specific.
+//
+//   Ted noting as well that in context of desktop C program running
+//   in a multi-user operating system environment -- in this case
+//   Ubuntu Linux -- this routine may not need be static.  Ted to test
+//   whether there's any detectable difference in this program's
+//   output, when static qualifier is present and when absent . . .
+//
+//                                                             - TMH
+//
+//----------------------------------------------------------------------
+
+//     uint16_t uiCRC;
+     short unsigned int uiCRC;
+     short unsigned int index;
+
+// diagnostics:
+    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_announce = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+//    unsigned int dflag_warning = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("ucBN_Calc_HeaderCRC");
+
+
+
+    dflag_announce = diagnostics_flag_value(rname, ROUTINE__UCBN_CALC_HEADERCRC);
+    dflag_verbose = diagnostics_flag_value(rname, ROUTINE__UCBN_CALC_HEADERCRC);
+
+    show_diag(rname, "starting,", dflag_announce);
+
+//    printf("%s():  received byte of data holding %02X, ucBN_HeaderCRC holds %02X,\n", "ucBN_Calc_HeaderCRC", ucData, ucBN_HeaderCRC);
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "received byte of data holding %02X, ucBN_HeaderCRC holds %02X,",
+      ucData, ucBN_HeaderCRC);
+    show_diag(rname, lbuf, dflag_verbose);
+
+
+    uiCRC =  ucData ^ ucBN_HeaderCRC;
+
+// #ifdef FAST_BACNET_HEADER_CRC
+//     uiCRC = uiCRC  ^ pgm_read_word(&xpuiBACnet_Header_CRC_Table[uiCRC]);
+
+    if ( method_of_calculation == TABLE_LOOK_UP )
+    {
+        show_diag(rname, "using CRC table,", dflag_verbose);
+        index = uiCRC;
+        uiCRC = uiCRC ^ xpuiBACnet_Header_CRC_Table[index];
+    }
+
+// #else // FAST_BACNET_HEADER_CRC
+    else
+    {
+        show_diag(rname, "calculating CRC via exclusive-OR operations . . .", dflag_verbose);
+        uiCRC = uiCRC ^ (uiCRC<<1) ^ (uiCRC<<2) ^ (uiCRC<<3) ^ (uiCRC<<4) ^ (uiCRC<<5) ^ (uiCRC<<6) ^ (uiCRC<<7);
+    }
+
+// #endif // FAST_BACNET_HEADER_CRC
+
+
+//     printf("%s():  returning updated ucBN_HeaderCRC equal to %02X . . .\n", "ucBN_Calc_HeaderCRC", (uiCRC&0xFE) ^ ((uiCRC>>8)&1));
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "done, returning updated ucBN_HeaderCRC equal to %02X . . .\n",
+      (uiCRC&0xFE) ^ ((uiCRC>>8)&1));
+    show_diag(rname, lbuf, dflag_verbose);
+
+    return (uiCRC&0xFE) ^ ((uiCRC>>8)&1);
+
+} // end routine ucBN_Calc_HeaderCRC() 
+
+
+
+
+
+
+
+
+//----------------------------------------------------------------------
+//  - SECTION - code from earlier development steps
+//----------------------------------------------------------------------
+
+int old_tests()
+{
+//----------------------------------------------------------------------
+//  DESCRIPTION:  code from earlier development steps, prior to
+//   program ability to read BACnet PDU byte data from file or
+//   command line arguments:
+//----------------------------------------------------------------------
+
+// should have CRC equal to 0xDA, per document "bacnet-encoding.rtf" or
+// "Encoding.doc" page 4 of 42:
+
+    unsigned char bytes_of_header[] = {0x55, 0xFF, 0x02, 0x00, 0x09};
+
+
+    DIAG__SET_ROUTINE_NAME("old_tests");
+
+
+
+    printf("- TEST 1 -\n");
+    printf("initializing header CRC to 0xFF,\n");
+    ucBN_HeaderCRC = 0xFF;
+
+    printf("calling routine a few times, to calculate sample BACnet packet header CRC . . .\n");
+//    sample_crc = ucBN_Calc_HeaderCRC(1);
+//    sample_crc = ucBN_Calc_HeaderCRC(bytes_of_header[0]);
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0]);
+
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[3], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[4], TABLE_LOOK_UP);
+
+    printf("all bytes of header sent, final CRC value is %02X\n", ucBN_HeaderCRC);
+
+    printf("masking to least eight bits:\n");
+//    printf("masking all but lowest eight bits gives %02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
+
+    printf("header CRC value after taking binary one's compliment and bit-wise ANDing is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+
+
+
+    printf("- TEST 2 -\n");
+    printf("initializing header CRC to 0xFF,\n");
+    ucBN_HeaderCRC = 0xFF;
+    printf("calling routine a few times, to calculate sample BACnet packet header CRC . . .\n");
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], CALCULATE_VIA_XOR_OPERATIONS);
+//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], CALCULATE_VIA_XOR_OPERATIONS);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], CALCULATE_VIA_XOR_OPERATIONS);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[3], CALCULATE_VIA_XOR_OPERATIONS);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[4], CALCULATE_VIA_XOR_OPERATIONS);
+    printf("masking to least eight bits:\n");
+    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
+    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+
+
+/*
+    printf("- TEST 3 -\n");
+    printf("initializing header CRC to 0xFF,\n");
+    ucBN_HeaderCRC = 0xFF;
+    printf("calling routine a few times, to calculate sample BACnet packet header CRC . . .\n");
+
+    bytes_of_header[0] = 0x55;   // should have CRC equal to 0xBB, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
+    bytes_of_header[1] = 0xFF;
+    bytes_of_header[2] = 0x06;
+    bytes_of_header[3] = 0x00;
+    bytes_of_header[4] = 0x00;
+
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[3], TABLE_LOOK_UP);
+    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[4], TABLE_LOOK_UP);
+    printf("masking to least eight bits:\n");
+    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
+    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
+*/
+
+
+    return 0;
+
+} // end of routine old_tests()
+
+
+
+
+
+//----------------------------------------------------------------------
+//  - SECTION - local diagnostics
+//----------------------------------------------------------------------
+
+void show_binary_number(const char* caller, int number_to_show)
+{
+
+    char string__number_in_binary_formatted[SIZE__TOKEN];
+    memset(string__number_in_binary_formatted, 0, SIZE__TOKEN);
+
+// counter used to iterate over bits of number to show in binary format:
+    int n;
+
+// index used to build formatted string with additional white space between groups of bits:
+    int string_index;
+
+// copy of number to show, preserves number passed from caller:
+    int number;
+
+
+// diagnostics:
+    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+
+    DIAG__SET_ROUTINE_NAME("show_binary_number");
+
+
+
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "ready to show number which is %d bytes long, in binary format,",
+      sizeof(number_to_show));
+    show_diag(rname, lbuf, dflag_verbose);
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "caller passes us value '%d',", number_to_show);
+    show_diag(rname, lbuf, dflag_verbose);
+
+    number = number_to_show;
+
+// Variable n here to count down from the number of bits in the number to format binarily, to one:
+    n = ( sizeof(number_to_show) * 8 );
+
+// We build the formatted number string from left to right, to ease arbitrary spacing of groups of bits:
+    string_index = 0;
+
+    while ( n )
+    {
+//        snprintf(lbuf, SIZE__DIAG_MESSAGE, "bit-wise ANDing %d and %d,", number, (2 ^ (n - 1)));   . . . Ahh we mistakenly using XOR operator, not 'a to power of b' - TMH
+//        snprintf(lbuf, SIZE__DIAG_MESSAGE, "bit-wise ANDing %u and %u,", number, (1  << ((sizeof(number_to_show) * 8) - 1)));
+//        show_diag(rname, lbuf, dflag_verbose);
+
+        if ( number & (1  << ((sizeof(number_to_show) * 8) - 1)) )
+            { string__number_in_binary_formatted[string_index] = '1'; }
+        else
+            { string__number_in_binary_formatted[string_index] = '0'; }
+
+// Working from MSB to LSB one bit at time:
+        number = ( number << 1 );
+
+        --n;
+
+        ++string_index;
+
+
+//        if ( n % 8 )    . . . evaluates true for bits 1 through 31,
+        if ( (n % 8) == 0 )
+        {
+//            snprintf(lbuf, SIZE__DIAG_MESSAGE, "checked %d bits, copy of number to show now = %d,",
+//              (32 - n), number);
+//            show_diag(rname, lbuf, dflag_verbose);
+
+// String index has already been advance, so add white space then increment string index again:
+//            string__number_in_binary_formatted[string_index] = ' ';
+            string__number_in_binary_formatted[string_index] = 32;
+            ++string_index;
+        }
+
+    }
+
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "number in binary:  %s", string__number_in_binary_formatted);
+    show_diag(rname, lbuf, dflag_verbose);
+
+} // end routine show_binary_number()
+
+
+
+
+
+int diagnostics_flag_set(const char* caller, int local_routine_identifier)
+{
+    global_bit_wise_diagnostics_flags_0_through_31 = (global_bit_wise_diagnostics_flags_0_through_31 | local_routine_identifier);
+
+    return 0;
+}
+
+
+int diagnostics_flag_reset(const char* caller, int local_routine_identifier)
+{
+    global_bit_wise_diagnostics_flags_0_through_31 = (global_bit_wise_diagnostics_flags_0_through_31 & (!(local_routine_identifier)));
+
+    return 0;
+}
+
+
+int diagnostics_flag_value(const char* caller, int local_routine_identifier)
+{
+
+
+    return (global_bit_wise_diagnostics_flags_0_through_31 & local_routine_identifier);
+}
+
+
+void diagnostics_flag_show_value(const char* caller)
+{
+    char lbuf[SIZE__DIAG_MESSAGE];
+    unsigned int dflag_verbose = DIAGNOSTICS_ON;
+
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "global diagnostics flag holds %d", global_bit_wise_diagnostics_flags_0_through_31);
+    show_diag("diagnostics_flag_show_value", lbuf, dflag_verbose);
+}
+
 
 
 
@@ -312,7 +678,8 @@ int free_memory_holding_text_file_data(const char* caller)
 
     show_diag(rname, "done.", dflag_announce);
     return 0;
-}
+
+} // end routine free_memory_holding_text_file_data()
 
 
 
@@ -449,55 +816,6 @@ int break_lines_into_tokens(const char* caller)
 
 
 
-#define FAST_BACNET_HEADER_CRC
-
-// //**************************************************************
-// static uint8_t ucBN_Calc_HeaderCRC(uint8_t ucData) {
-// //**************************************************************
-
-// static unsigned char ucBN_Calc_HeaderCRC(unsigned char ucData)
-static unsigned char ucBN_Calc_HeaderCRC(unsigned char ucData, unsigned char method_of_calculation )
-{
-
-//     uint16_t uiCRC;
-     short unsigned int uiCRC;
-     short unsigned int index;
-
-
-     printf("%s():  received byte of data holding %02X, ucBN_HeaderCRC holds %02X,\n", "ucBN_Calc_HeaderCRC", ucData, ucBN_HeaderCRC);
-
-     uiCRC =  ucData ^ ucBN_HeaderCRC;
-
-// #ifdef FAST_BACNET_HEADER_CRC
-//     uiCRC = uiCRC  ^ pgm_read_word(&xpuiBACnet_Header_CRC_Table[uiCRC]);
-
-    if ( method_of_calculation == TABLE_LOOK_UP )
-    {
-        printf("%s():  using CRC table,\n", "ucBN_Calc_HeaderCRC");
-        index = uiCRC;
-        uiCRC = uiCRC ^ xpuiBACnet_Header_CRC_Table[index];
-    }
-
-// #else // FAST_BACNET_HEADER_CRC
-    else
-    {
-        printf("%s():  calculating CRC via exclusive-OR operations . . .\n", "ucBN_Calc_HeaderCRC");
-        uiCRC = uiCRC ^ (uiCRC<<1) ^ (uiCRC<<2) ^ (uiCRC<<3) ^ (uiCRC<<4) ^ (uiCRC<<5) ^ (uiCRC<<6) ^ (uiCRC<<7);
-    }
-
-// #endif // FAST_BACNET_HEADER_CRC
-
-
-     printf("%s():  returning updated ucBN_HeaderCRC equal to %02X . . .\n", "ucBN_Calc_HeaderCRC", (uiCRC&0xFE) ^ ((uiCRC>>8)&1));
-
-     return (uiCRC&0xFE) ^ ((uiCRC>>8)&1);
-
-} // end routine ucBN_Calc_HeaderCRC() 
-
-
-
-
-
 int parse_pdu_data_from_command_line(const char* caller, int argc, char* argv[])
 {
 //----------------------------------------------------------------------
@@ -592,7 +910,7 @@ int parse_pdu_data_from_command_line(const char* caller, int argc, char* argv[])
     show_diag(rname, "done.", dflag_announce);
     return count_pdu_bytes_parsed;
 
-}
+} // end routine parse_pdu_data_from_command_line()
 
 
 
@@ -725,7 +1043,7 @@ enum supported_options
 #undef INDEX_TO_ARG_HOLDING_DATA_FILENAME
 #undef INDEX_TO_ARG_HOLDING_OPTION
 
-}
+} // end routine parse_command_line_arguments()
 
 
 
@@ -750,6 +1068,13 @@ int main (int argc, char* argv[])
 
     show_diag(rname, "starting,", dflag_announce);
 
+//    ROUTINE__UCBN_CALC_HEADERCRC
+    show_diag(rname, "turning on diagnostics for D Bruno routine ucBN_Calc_HeaderCRC() . . .", dflag_verbose);
+    diagnostics_flag_set(rname, ROUTINE__UCBN_CALC_HEADERCRC);
+    show_binary_number(rname, global_bit_wise_diagnostics_flags_0_through_31);
+
+    show_diag(rname, "turning off diagnostics for D Bruno routine ucBN_Calc_HeaderCRC() . . .", dflag_verbose);
+    diagnostics_flag_reset(rname, ROUTINE__UCBN_CALC_HEADERCRC);
 
 
 // 2017-05-01 - Ted adding command line arguments parsing . . .
@@ -826,92 +1151,6 @@ int main (int argc, char* argv[])
 
 
 
-
-
-
-
-//----------------------------------------------------------------------
-//  - SECTION - code from earlier development steps
-//----------------------------------------------------------------------
-
-int old_tests()
-{
-
-// should have CRC equal to 0xDA, per document "bacnet-encoding.rtf" or
-// "Encoding.doc" page 4 of 42:
-
-    unsigned char bytes_of_header[] = {0x55, 0xFF, 0x02, 0x00, 0x09};
-
-
-    DIAG__SET_ROUTINE_NAME("old_tests");
-
-
-
-    printf("- TEST 1 -\n");
-    printf("initializing header CRC to 0xFF,\n");
-    ucBN_HeaderCRC = 0xFF;
-
-    printf("calling routine a few times, to calculate sample BACnet packet header CRC . . .\n");
-//    sample_crc = ucBN_Calc_HeaderCRC(1);
-//    sample_crc = ucBN_Calc_HeaderCRC(bytes_of_header[0]);
-//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0]);
-
-//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
-//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[3], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[4], TABLE_LOOK_UP);
-
-    printf("all bytes of header sent, final CRC value is %02X\n", ucBN_HeaderCRC);
-
-    printf("masking to least eight bits:\n");
-//    printf("masking all but lowest eight bits gives %02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
-    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
-
-    printf("header CRC value after taking binary one's compliment and bit-wise ANDing is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
-
-
-
-    printf("- TEST 2 -\n");
-    printf("initializing header CRC to 0xFF,\n");
-    ucBN_HeaderCRC = 0xFF;
-    printf("calling routine a few times, to calculate sample BACnet packet header CRC . . .\n");
-//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], CALCULATE_VIA_XOR_OPERATIONS);
-//    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], CALCULATE_VIA_XOR_OPERATIONS);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], CALCULATE_VIA_XOR_OPERATIONS);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[3], CALCULATE_VIA_XOR_OPERATIONS);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[4], CALCULATE_VIA_XOR_OPERATIONS);
-    printf("masking to least eight bits:\n");
-    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
-    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
-
-
-/*
-    printf("- TEST 3 -\n");
-    printf("initializing header CRC to 0xFF,\n");
-    ucBN_HeaderCRC = 0xFF;
-    printf("calling routine a few times, to calculate sample BACnet packet header CRC . . .\n");
-
-    bytes_of_header[0] = 0x55;   // should have CRC equal to 0xBB, per document "bacnet-encoding.rtf" or "Encoding.doc" page 4 of 42,
-    bytes_of_header[1] = 0xFF;
-    bytes_of_header[2] = 0x06;
-    bytes_of_header[3] = 0x00;
-    bytes_of_header[4] = 0x00;
-
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[0], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[1], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[2], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[3], TABLE_LOOK_UP);
-    ucBN_HeaderCRC = ucBN_Calc_HeaderCRC(bytes_of_header[4], TABLE_LOOK_UP);
-    printf("masking to least eight bits:\n");
-    printf("header CRC value calculated to be 0x%02X equal to decimal %u,\n\n", ( ucBN_HeaderCRC & 0xFF ), ( ucBN_HeaderCRC & 0xFF ));
-    printf("header CRC value after bit-wise AND is 0x%02X,\n\n", ( ~ucBN_HeaderCRC & 0xFF ));
-*/
-
-
-    return 0;
-
-} // end of routine old_tests()
 
 
 
