@@ -83,6 +83,7 @@
 
 #include <dlenv.h>        // provides routine dlenv_init(), (Data Link Environment variables parsing and handling),
 
+
 // 2017-04-03 MON - added by Ted:
 #include <address.h>      // provides routine address_init(),
 
@@ -90,17 +91,22 @@
 
 #include <handlers.h>     // provides routine handler_who_is(), NOTE - SHOULD ALSO PROVIDE handler_i_am_bind() . . .  - TMH
 
-// 2017-04-04 TUE - added by Ted:
 
+// 2017-04-04 TUE - added by Ted:
 #include <bactext.h>     // provides routine ___
 
 #include <client.h>      // provides routine Send_Read_Property_Request(),
 
 #include <tsm.h>         // provides routine tsm_invoke_id_free(), tsm_invoke_id_failed() and tsm_free_invoke_id(),
 
-// 2017-04-13 THU - added
 
-#include <dlmstp.h>      // provides DLMSTP_PACKE.
+// 2017-04-13 THU - added
+#include <dlmstp.h>      // provides DLMSTP_PACKET.
+
+
+// 2017-05-09 TUE - added by Ted:
+#include <ringbuf.h>     // avoid compiler warning about implicit function Ringbuf_Count(),
+
 
 
 // # A test library header file of Ted's:
@@ -122,7 +128,8 @@
 #define MAX_LOOP_CYCLES_TO_EXECUTE (1000)  // as of 2017-04-06 morning was (30) - TMH
 
 // 2017-04-20 - added:
-#define TIMES_TO_REPEAT_COMMS_LOOP (40)
+// #define TIMES_TO_REPEAT_COMMS_LOOP (40)
+#define TIMES_TO_REPEAT_COMMS_LOOP (300)    // 2017-05-08 MON - Ted watching invoke_id values returned by routine tsm_request_invoke_id(),
 
 
 
@@ -188,16 +195,18 @@ static RT_MUTEX Receive_Packet_Mutex;
 
 
 
-//----------------------------------------------------------------------
-// - SECTION - function prototypes
-//----------------------------------------------------------------------
 
-
+//----------------------------------------------------------------------
+// - SECTION - function prototypes and copied static functions
+//----------------------------------------------------------------------
 
 
 // 2017-04-13 - copied to here from ~0.8.3--verbose/ports/linux/dlmsp.c:
 
 // 2017-04-13 - prototype alone here did not work:
+
+// 2017-05-10 - the following code expressed after this extern keyword
+//   appears to work correctly as a routine prototype . . .
 
 extern uint16_t dlmstp_receive(
   BACNET_ADDRESS * src,  /* source address */
@@ -208,14 +217,14 @@ extern uint16_t dlmstp_receive(
 
 
 
-
-
 void MyAbortHandler(    // <-- function prototype, function defined in Kargs' ~0.8.3/demo/readprop/main.c - TMH
   BACNET_ADDRESS * src,
   uint8_t invoke_id,
   uint8_t abort_reason,
   bool server
 );
+
+
 
 
 // 2017-04-03 - NEED to copy static routine MyErrorHandler() from readprop/main.c - TMH
@@ -250,6 +259,9 @@ void MyRejectHandler(
   uint8_t reject_reason
 );
 
+
+
+extern unsigned int address_of_ports_linux_dlmstp_pdu_queue(const char* caller);
 
 
 
@@ -813,6 +825,7 @@ int comms_test_3(int argc, char** argv)
     unsigned int dflag_announce   = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
     unsigned int dflag_verbose    = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
     unsigned int dflag_comms_loop = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+    unsigned int dflag_ring_buffer_tests = DIAGNOSTICS_ON ;
 
     unsigned int dflag_pause = DIAGNOSTICS_ON;
 
@@ -1085,6 +1098,30 @@ int comms_test_3(int argc, char** argv)
 
 
         } // end WHILE-loop to realize BACnet communications
+
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//  2017-05-09 - Test calls to ringbuf.c routines, study of Kargs' ring
+//    buffer:
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        if ( 1 )
+        {
+            int ring_buffer_byte_count = 0;
+
+//            show_diag(rname, "calling Ringbuf_Count() . . .", dflag_ring_buffer_tests);
+//            ring_buffer_byte_count = Ringbuf_Count();
+
+//            snprintf(lbuf, SIZE__DIAG_MESSAGE, "ring buffer holds %d bytes,", ring_buffer_byte_count);
+//            show_diag(rname, lbuf, dflag_ring_buffer_tests);
+
+
+            address_of_ports_linux_dlmstp_pdu_queue(rname);
+        }
+         
+
+
 
     } // end 2017-04-19 WHILE-loop to iterate over communcations loop n times
 
