@@ -261,7 +261,10 @@ void MyRejectHandler(
 
 
 
-extern unsigned int address_of_ports_linux_dlmstp_pdu_queue(const char* caller);
+// extern unsigned int address_of_ports_linux_dlmstp_pdu_queue(const char* caller);
+extern RING_BUFFER* address_of_ports_linux_dlmstp_pdu_queue(const char* caller);
+
+extern void wrapper_to_ringbuf_count(const char* caller);
 
 
 
@@ -819,10 +822,10 @@ int comms_test_3(int argc, char** argv)
 // + provide in a very simple way:
     int routine_scoped_silence_flag = 0;
 
-//    unsigned int dflag_announce   = DIAGNOSTICS_ON;
+    unsigned int dflag_announce   = DIAGNOSTICS_ON;
 //    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
 //    unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
-    unsigned int dflag_announce   = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+//    unsigned int dflag_announce   = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
     unsigned int dflag_verbose    = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
     unsigned int dflag_comms_loop = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
     unsigned int dflag_ring_buffer_tests = DIAGNOSTICS_ON ;
@@ -865,6 +868,12 @@ int comms_test_3(int argc, char** argv)
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 
+
+
+
+// 2017-05-11 - added by Ted:
+    show_diag(rname, "calling wrapper routine to Ringbuf_Count() . . .", dflag_ring_buffer_tests);
+    wrapper_to_ringbuf_count(rname);
 
 
 
@@ -952,6 +961,10 @@ int comms_test_3(int argc, char** argv)
                 show_diag(rname, lbuf, dflag_comms_loop);
             }
 
+
+
+// 2017-05-11 THU - test added by Ted:
+            wrapper_to_ringbuf_count(rname);
 
 
 
@@ -1110,6 +1123,8 @@ int comms_test_3(int argc, char** argv)
         {
             int ring_buffer_byte_count = 0;
 
+            if ( ring_buffer_byte_count ) { }
+
 //            show_diag(rname, "calling Ringbuf_Count() . . .", dflag_ring_buffer_tests);
 //            ring_buffer_byte_count = Ringbuf_Count();
 
@@ -1117,7 +1132,7 @@ int comms_test_3(int argc, char** argv)
 //            show_diag(rname, lbuf, dflag_ring_buffer_tests);
 
 
-            address_of_ports_linux_dlmstp_pdu_queue(rname);
+//            address_of_ports_linux_dlmstp_pdu_queue(rname);
         }
          
 
