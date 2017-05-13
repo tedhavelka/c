@@ -379,10 +379,10 @@ static void Init_Service_Handlers(void)
 
 
     show_diag(rname, "starting,", dflag_announce);
+    show_diag(rname, "Note:  this routine copied from Kargs' demo program named bacrp,", dflag_verbose);
+    show_diag(rname, "Note:  where it is statically declared.", dflag_verbose);
 
-    show_diag(rname, "Note:  this routine copied from Kargs' demo program named bacrp,", dflag_announce);
-
-    show_diag(rname, "- INIT SERVICE HANDLERS 1 - calling Device_Init() . . .", dflag_announce);
+    show_diag(rname, "- INIT SERVICE HANDLERS 1 - calling Device_Init() . . .", dflag_verbose);
     Device_Init(NULL);
 
 // *  we need to handle who-is to support dynamic device binding to us * /
@@ -852,16 +852,17 @@ int comms_test_3(int argc, char** argv)
     Init_Service_Handlers();
     dlenv_init();
     atexit(datalink_cleanup);
+
     /* configure the timeout values */
     last_seconds = time(NULL);
     timeout_seconds = (apdu_timeout() / 1000) * apdu_retries();
+
     /* try to bind with the device */
-    found =
-        address_bind_request(Target_Device_Object_Instance, &max_apdu,
-        &Target_Address);
-    if (!found) {
-        Send_WhoIs(Target_Device_Object_Instance,
-            Target_Device_Object_Instance);
+    found = address_bind_request(Target_Device_Object_Instance, &max_apdu, &Target_Address);
+
+    if (!found)
+    {
+        Send_WhoIs(Target_Device_Object_Instance, Target_Device_Object_Instance);
     }
 
 // END OF:  Karg's bacrp code snippet
