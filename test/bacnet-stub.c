@@ -1329,6 +1329,11 @@ int main(int argc, char** argv)
 
 
 
+    char test_array[10] = {0, 85, 170, 255, 0, 85, 170, 255, 0, 1};
+
+    show_byte_array(rname, test_array, 10, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
+
+
 //    show_diag(rname, "calling communications test routine 2 . . .", dflag_verbose);
 //    comms_test_2(argc, argv);
     show_diag(rname, "calling communications test routine 3 . . .", dflag_verbose);

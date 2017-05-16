@@ -52,6 +52,12 @@
 
 
 
+// 2017-05-16 - simple pound defines for code readability:
+
+#define ONE_BYTE_FOR_NULL_TERMINATION (1)
+
+
+
 //--------------------------------------------------------------------
 //  - SECTION - diagnostics formats
 //
@@ -74,8 +80,24 @@ enum diagnostics_message_formats
 #define DEFAULT_DIAG_MESSAGE_FORMAT DIAGNOSTICS__FORMAT_MESSAGE_WITH_COLON_SEPARATOR
 
 
+
+// 2017-05-16 - enumeration for routine to display byte and character arrays:
+
+enum byte_array_display_options
+{
+    BYTE_ARRAY__DISPLAY_FORMAT__8_PER_LINE,
+    BYTE_ARRAY__DISPLAY_FORMAT__8_PER_LINE__GROUPS_OF_FOUR,
+    BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE,
+    BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR,
+    BYTE_ARRAY__DISPLAY_FORMAT__END_OF_FORMATS_MARKER
+};
+
+
+
+
+
 //--------------------------------------------------------------------
-//  SECTION:  macros
+//  - SECTION - macros
 //--------------------------------------------------------------------
 
 // 2007-10-19  does it matter whether pound define statements like
@@ -95,6 +117,13 @@ enum diagnostics_message_formats
 void show_diag(const char* caller, const char *message, unsigned int format);
 
 void blank_line_out(const char* caller, unsigned int number_of_blank_lines);
+
+void show_byte_array(
+  const char* caller,
+  char* pointer_to_bytes,
+  unsigned long int count_of_bytes_to_show,
+  unsigned int options
+);
 
 
 
