@@ -13,6 +13,24 @@
 //    $ gcc bacnet-stub.c -g3 -Wall -I/usr/local/include/libtestlib-0p1 -I/home/ted/projects/bacnet/steve-karg-stack/tags/bacnet-stack-0.8.3/include -I/home/ted/projects/bacnet/steve-karg-stack/tags/bacnet-stack-0.8.3/ports/linux -I/home/ted/projects/bacnet/steve-karg-stack/tags/bacnet-stack-0.8.3/demo/object -L/usr/local/lib/libtestlib-0p1 -ltestlib-0p1 -lkargs-bacnet-mstp-0p8p3 -lm -lpthread -o b.out
 //
 //
+//  2017-05-15 MON - Ted redirecting compiler to look for Kargs' include files in Ted's verbose branch of Kargs release 0.8.3:
+//
+//    $ gcc bacnet-stub.c -g3 -Wall -I/usr/local/include/libtestlib-0p1 -I/home/ted/projects/bacnet/steve-karg-stack/tags/bacnet-stack-0.8.3--verbose/include -I/home/ted/projects/bacnet/steve-karg-stack/tags/bacnet-stack-0.8.3--verbose/ports/linux -I/home/ted/projects/bacnet/steve-karg-stack/tags/bacnet-stack-0.8.3--verbose/demo/object -L/usr/local/lib/libtestlib-0p1 -ltestlib-0p1 -lkargs-bacnet-mstp-0p8p3 -lm -lpthread -o b.out
+//
+//  . . . hmm, there's a difference in the built executable:
+//
+//
+//      ted@nirranda:~/projects/c/test$ date
+//      Monday 15 May  12:02:49 PDT 2017
+//      ted@nirranda:~/projects/c/test$ ls -l ./*.out
+//      -rwxrwxr-x 1 ted ted  11856 Mar 31 13:02 ./a.out
+//      -rwxrwxr-x 1 ted ted 160960 May 15 11:24 ./b-dot-out--includes-kargs-tag-0p8p3.out
+//      -rwxrwxr-x 1 ted ted 161020 May 15 12:02 ./b.out
+//      ted@nirranda:~/projects/c/test$
+//
+//
+//
+//
 //
 //  EXECUTE a.out STEPS:
 //
@@ -68,7 +86,10 @@
 
 
 
-// # A header file of Steve Kargs' open source BACnet stack project:
+//
+//  Header files of Steve Kargs' open source BACnet stack project:
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 #include <mstp.h>         // provides definition of structure mstp_port_struct_t,
                           // 2017-02-27 - should also provide as it has function protoype of routine uint16_t MSTP_Put_Receive() - TMH
 
@@ -107,9 +128,16 @@
 // 2017-05-09 TUE - added by Ted:
 #include <ringbuf.h>     // avoid compiler warning about implicit function Ringbuf_Count(),
 
+// 2017-05-15 MON - added by Ted:
+#include <txbuf.h>       // Ted attempting to pull in Global Transmit Buffer in ./demo/handler/txbuf.c . . . worked!
 
 
+
+
+//
 // # A test library header file of Ted's:
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 #include <diagnostics.h>
 
 
@@ -266,14 +294,16 @@ extern RING_BUFFER* address_of_ports_linux_dlmstp_pdu_queue(const char* caller);
 
 extern void wrapper_to_ringbuf_count(const char* caller);
 
+void show_n_bytes_of_global_transfer_buffer(const char* caller, int count_of_bytes);
+
+
+
 
 
 
 //----------------------------------------------------------------------
 // - SECTION - function definitions
 //----------------------------------------------------------------------
-
-
 
 // 2017-03-01 - Added by Ted as these are statically defined and can't
 //  be accessed via shared object library:
@@ -486,6 +516,50 @@ int show_read_property_request_parameters(const char* caller)
     return 0;
 }
 
+
+
+
+void show_n_bytes_of_global_transfer_buffer(const char* caller, int count_of_bytes)
+{
+
+// diagnostics:
+    char lbuf[SIZE__DIAG_MESSAGE];
+//    unsigned int dflag_announce   = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
+
+/*
+    for ( int i = 0; i < count_of_bytes; ++i )
+    {
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "
+    }
+*/
+
+    if ( 1 )
+    {
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, " %02X %02X %02X %02X   %02X %02X %02X %02X   %02X %02X %02X %02X   %02X %02X %02X %02X",
+          Handler_Transmit_Buffer[0],
+          Handler_Transmit_Buffer[1],
+          Handler_Transmit_Buffer[2],
+          Handler_Transmit_Buffer[3],
+
+          Handler_Transmit_Buffer[4],
+          Handler_Transmit_Buffer[5],
+          Handler_Transmit_Buffer[6],
+          Handler_Transmit_Buffer[7],
+
+          Handler_Transmit_Buffer[8],
+          Handler_Transmit_Buffer[9],
+          Handler_Transmit_Buffer[10],
+          Handler_Transmit_Buffer[11],
+
+          Handler_Transmit_Buffer[12],
+          Handler_Transmit_Buffer[13],
+          Handler_Transmit_Buffer[14],
+          Handler_Transmit_Buffer[15]);
+    }
+    show_diag("Global Transmit Buffer:", lbuf, dflag_verbose);
+
+}
 
 
 
@@ -826,9 +900,11 @@ int comms_test_3(int argc, char** argv)
 //    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
 //    unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
 //    unsigned int dflag_announce   = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+
     unsigned int dflag_verbose    = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
     unsigned int dflag_comms_loop = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
     unsigned int dflag_ring_buffer_tests = DIAGNOSTICS_ON ;
+    unsigned int dflag_loop_iterations_remaining = DIAGNOSTICS_ON ;
 
     unsigned int dflag_pause = DIAGNOSTICS_ON;
 
@@ -914,7 +990,19 @@ int comms_test_3(int argc, char** argv)
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "--- sending \"Read Request\" attempt %d:   ---", i);
         show_diag(rname, lbuf, dflag_verbose);
 
-        loop_cycles_completed = 0;
+//        snprintf(lbuf, SIZE__DIAG_MESSAGE, "--- %ld of %d comm's loop attempts remaining to perform  ---",
+//          (MAX_LOOP_CYCLES_TO_EXECUTE - loop_cycles_completed), MAX_LOOP_CYCLES_TO_EXECUTE);
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "--- %d of %d comm's loop attempts remaining to perform  ---",
+          (MAX_LOOP_CYCLES_TO_EXECUTE - i), MAX_LOOP_CYCLES_TO_EXECUTE);
+        show_diag(rname, lbuf, dflag_loop_iterations_remaining);
+
+// QUESTION 2017-05-15:  what is variable 'loop cycles completed' used for? - TMH
+        loop_cycles_completed = 0;   // . . . defined in comms_test_3()
+
+        show_n_bytes_of_global_transfer_buffer(rname, 16);
+
+
 
 //
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1160,7 +1248,6 @@ int comms_test_3(int argc, char** argv)
 int main(int argc, char** argv)
 {
 
-    int array_size;
 
 // 2017-04-12 - moved up near top of file, before function definitions:
 // #define ONE_MILLION_MS (1000 * 1000)
@@ -1208,9 +1295,6 @@ int main(int argc, char** argv)
     memset(lbuf, 1, SIZE__DIAG_MESSAGE);
     lbuf[(SIZE__DIAG_MESSAGE - 1)] = 0;
 
-    array_size = strlen(lbuf);
-    snprintf(lbuf, SIZE__DIAG_MESSAGE, "local buffer for messages found to be %d bytes long,", array_size);
-    show_diag(rname, lbuf, dflag_verbose);
 
 
 // 2017-04-14 - A few variables to test, while not in use, to avoid gcc warnings:
@@ -1232,6 +1316,15 @@ int main(int argc, char** argv)
 #else
     snprintf(lbuf, SIZE__DIAG_MESSAGE, "2017-04-06 NOTE:  Kargs project network type label 'BACDL_MSTP' not defined!");
 #endif
+    show_diag(rname, lbuf, dflag_verbose);
+
+
+// 2017-05-15 MON -
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "2017-05-15 NOTE:  Kargs' pound define MAX_PDU defined as %d,", MAX_PDU);
+    show_diag(rname, lbuf, dflag_verbose);
+
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "2017-05-15 NOTE:  first byte of Kargs' Global Transmit Buffer holds %d,",
+      Handler_Transmit_Buffer[0]);
     show_diag(rname, lbuf, dflag_verbose);
 
 
