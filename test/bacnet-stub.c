@@ -1000,8 +1000,8 @@ int comms_test_3(int argc, char** argv)
 // QUESTION 2017-05-15:  what is variable 'loop cycles completed' used for? - TMH
         loop_cycles_completed = 0;   // . . . defined in comms_test_3()
 
-        show_n_bytes_of_global_transfer_buffer(rname, 16);
-
+//        show_n_bytes_of_global_transfer_buffer(rname, 16);
+        show_byte_array(rname, (char*)Handler_Transmit_Buffer, 48, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
 
 
 //
@@ -1264,9 +1264,7 @@ int main(int argc, char** argv)
 
 // Variables copied from Kargs demo program named bacrp:
     bool found = false;
-
     unsigned max_apdu = 0;
-
     uint16_t pdu_len = 0;
 
     BACNET_ADDRESS src = { 0 };  /* address where message came from */
@@ -1329,16 +1327,25 @@ int main(int argc, char** argv)
 
 
 
-    char test_array[20] = {0, 85, 170, 255, 0, 85, 170, 255, 0, 1};
-    show_byte_array(rname, test_array, 10, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
-
-//    test_array[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
-    for (int i = 0; i < 20; ++i)
+// 2017-05-17 WED -
+    if ( 1 )
     {
-        test_array[i] = (i + 1);
-    }
-    show_byte_array(rname, test_array, 20, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
+        show_diag(rname, "testing display of values from a local ten-byte array . . .", dflag_verbose);
+        char test_array[20] = {0, 85, 170, 255, 0, 85, 170, 255, 0, 1};
+        show_byte_array(rname, test_array, 10, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
 
+
+        show_diag(rname, "testing display of values from a local twenty-byte array . . .", dflag_verbose);
+        for (int i = 0; i < 20; ++i)
+        {
+            test_array[i] = (i + 1);
+        }
+        show_byte_array(rname, test_array, 20, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
+
+
+        show_diag(rname, "showing first twenty (20) bytes of Kargs' Handler Transmit Buffer . . .", dflag_verbose);
+        show_byte_array(rname, (char*)Handler_Transmit_Buffer, 20, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
+    }
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1348,8 +1355,8 @@ int main(int argc, char** argv)
 //    show_diag(rname, "calling communications test routine 2 . . .", dflag_verbose);
 //    comms_test_2(argc, argv);
 //
-//    show_diag(rname, "calling communications test routine 3 . . .", dflag_verbose);
-//    comms_test_3(argc, argv);
+    show_diag(rname, "calling communications test routine 3 . . .", dflag_verbose);
+    comms_test_3(argc, argv);
 
 
 

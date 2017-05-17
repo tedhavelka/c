@@ -197,7 +197,7 @@ void show_byte_array(
             case BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR:
             {
                 show_diag(rname, "at case to show 16 bytes per line, in groups of four,", dflag_verbose);
-                snprintf(lbuf, SIZE__DIAG_MESSAGE, "caller asks to see %lu bytes,", count_of_bytes_to_show);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "calling routine '%s' asks to see %lu bytes,", caller, count_of_bytes_to_show);
                 show_diag(rname, lbuf, dflag_verbose);
 
 
