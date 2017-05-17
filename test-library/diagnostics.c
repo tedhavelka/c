@@ -193,15 +193,19 @@ show_diag(rname, lbuf, dflag_verbose);
     memset(datum_formatted, 0, SIZE__TOKEN);
     char space_between_data[SIZE__TOKEN];
     memset(space_between_data, 0, SIZE__TOKEN);
+    char lbuf_for_bytes[SIZE__DIAG_MESSAGE];
+
 
     int formatted_line_space_remaining = 0;
 
-                int bytes_per_line = 16;
-                int group_every_n_bytes = 4;
+    int datum_width = 2;
 
-                int lines_remaining = 0;
-                int bytes_remaining = 0;
-                int bytes_shown = 0;
+    int bytes_per_line = 16;
+    int group_every_n_bytes = 4;
+
+    int lines_remaining = 0;
+    int bytes_remaining = 0;
+    int bytes_shown = 0;
 
 //
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -218,6 +222,7 @@ show_diag(rname, lbuf, dflag_verbose);
                 {
                     bytes_shown = 0;
                     bytes_remaining = ( count_of_bytes_to_show - bytes_shown );
+                    memset(lbuf_for_bytes, 0, SIZE__DIAG_MESSAGE);
 
                     while ( ( bytes_remaining > 0 ) && ( bytes_shown < bytes_per_line ) )
                     {
@@ -225,10 +230,16 @@ show_diag(rname, lbuf, dflag_verbose);
 
                         // step - format the present byte:
 //                        snprintf(datum_formatted, SIZE__TOKEN, "%02X", pointer_to_bytes[bytes_shown]);
-                        snprintf(datum_formatted, SIZE__TOKEN, "%*X", pointer_to_bytes[bytes_shown], 2);
+//                        snprintf(datum_formatted, SIZE__TOKEN, "%.*X", datum_width, (char)pointer_to_bytes[bytes_shown]);  // <- getting '00   55 FFFFFFAA FFFFFFFF 00'
+                        snprintf(datum_formatted, SIZE__TOKEN, "%.*X", datum_width, (pointer_to_bytes[bytes_shown] & 0xff));  // <- getting '
+
+                        snprintf(lbuf, SIZE__DIAG_MESSAGE, "bytes shown %d modulus %d gives %d,",
+                          bytes_shown, group_every_n_bytes, ( bytes_shown % group_every_n_bytes ));
+                        show_diag(rname, lbuf, dflag_verbose);
 
                         // step - format space between bytes and byte groups:
-                        if (( bytes_shown % group_every_n_bytes ) == 0 )
+//                        if (( bytes_shown % group_every_n_bytes ) == 0 )
+                        if (( bytes_shown % group_every_n_bytes ) == (group_every_n_bytes - 1) )
                         {
                             snprintf(space_between_data, SIZE__TOKEN, "%s", "   ");
                         }
@@ -238,17 +249,17 @@ show_diag(rname, lbuf, dflag_verbose);
                         }
 
                         // step - format space between bytes and byte groups:
-                        formatted_line_space_remaining = (( SIZE__TOKEN - strlen(lbuf)) - ONE_BYTE_FOR_NULL_TERMINATION);
-                        strncat(lbuf, datum_formatted, formatted_line_space_remaining);
+                        formatted_line_space_remaining = (( SIZE__TOKEN - strlen(lbuf_for_bytes)) - ONE_BYTE_FOR_NULL_TERMINATION);
+                        strncat(lbuf_for_bytes, datum_formatted, formatted_line_space_remaining);
 
-                        formatted_line_space_remaining = (( SIZE__TOKEN - strlen(lbuf)) - ONE_BYTE_FOR_NULL_TERMINATION);
-                        strncat(lbuf, space_between_data, formatted_line_space_remaining);
+                        formatted_line_space_remaining = (( SIZE__TOKEN - strlen(lbuf_for_bytes)) - ONE_BYTE_FOR_NULL_TERMINATION);
+                        strncat(lbuf_for_bytes, space_between_data, formatted_line_space_remaining);
 
                         ++bytes_shown;
                         bytes_remaining = ( count_of_bytes_to_show - bytes_shown );
                     }
 
-                    show_diag(rname, lbuf, dflag_byte_array);
+                    show_diag(rname, lbuf_for_bytes, dflag_byte_array);
 
                     --lines_remaining;
 

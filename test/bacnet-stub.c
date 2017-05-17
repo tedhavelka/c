@@ -1334,10 +1334,19 @@ int main(int argc, char** argv)
     show_byte_array(rname, test_array, 10, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
 
 
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//  SECTION - communciations tests
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 //    show_diag(rname, "calling communications test routine 2 . . .", dflag_verbose);
 //    comms_test_2(argc, argv);
-    show_diag(rname, "calling communications test routine 3 . . .", dflag_verbose);
-    comms_test_3(argc, argv);
+//
+//    show_diag(rname, "calling communications test routine 3 . . .", dflag_verbose);
+//    comms_test_3(argc, argv);
+
+
 
 
 
