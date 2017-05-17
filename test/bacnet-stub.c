@@ -1329,10 +1329,15 @@ int main(int argc, char** argv)
 
 
 
-    char test_array[10] = {0, 85, 170, 255, 0, 85, 170, 255, 0, 1};
-
+    char test_array[20] = {0, 85, 170, 255, 0, 85, 170, 255, 0, 1};
     show_byte_array(rname, test_array, 10, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
 
+//    test_array[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+    for (int i = 0; i < 20; ++i)
+    {
+        test_array[i] = (i + 1);
+    }
+    show_byte_array(rname, test_array, 20, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
 
 
 

@@ -129,16 +129,27 @@ void show_byte_array(
 //
 //----------------------------------------------------------------------
 
-    char lbuf[SIZE__DIAG_MESSAGE];
 
     unsigned int on_formatting_and_other_options;
 
-// diagnostics:
+    char datum_formatted[SIZE__TOKEN];
+    memset(datum_formatted, 0, SIZE__TOKEN);
+    char space_between_data[SIZE__TOKEN];
+    memset(space_between_data, 0, SIZE__TOKEN);
+    char lbuf_for_bytes[SIZE__DIAG_MESSAGE];
 
-    unsigned int dflag_announce    = DIAGNOSTICS_ON;
-    unsigned int dflag_verbose     = DIAGNOSTICS_ON;
+    int formatted_line_space_remaining = 0;
+
+
+// diagnostics:
+    char lbuf[SIZE__DIAG_MESSAGE];
+
+    unsigned int dflag_announce   = DIAGNOSTICS_ON;
+    unsigned int dflag_verbose    = DIAGNOSTICS_ON;
+    unsigned int dflag_warning    = DIAGNOSTICS_ON;
+
     unsigned int dflag_development = DIAGNOSTICS_ON;
-    unsigned int dflag_warning     = DIAGNOSTICS_ON;
+    unsigned int dflag_modulus    = DIAGNOSTICS_OFF;
 
     unsigned int dflag_byte_array = DIAGNOSTICS_ON;
 
@@ -185,18 +196,10 @@ void show_byte_array(
 
             case BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR:
             {
-show_diag(rname, "at case to show 16 bytes per line, in groups of four,", dflag_verbose);
-snprintf(lbuf, SIZE__DIAG_MESSAGE, "caller asks to see %lu bytes,", count_of_bytes_to_show);
-show_diag(rname, lbuf, dflag_verbose);
+                show_diag(rname, "at case to show 16 bytes per line, in groups of four,", dflag_verbose);
+                snprintf(lbuf, SIZE__DIAG_MESSAGE, "caller asks to see %lu bytes,", count_of_bytes_to_show);
+                show_diag(rname, lbuf, dflag_verbose);
 
-    char datum_formatted[SIZE__TOKEN];
-    memset(datum_formatted, 0, SIZE__TOKEN);
-    char space_between_data[SIZE__TOKEN];
-    memset(space_between_data, 0, SIZE__TOKEN);
-    char lbuf_for_bytes[SIZE__DIAG_MESSAGE];
-
-
-    int formatted_line_space_remaining = 0;
 
     int datum_width = 2;
 
@@ -204,6 +207,7 @@ show_diag(rname, lbuf, dflag_verbose);
     int group_every_n_bytes = 4;
 
     int lines_remaining = 0;
+    int lines_shown = 0;
     int bytes_remaining = 0;
     int bytes_shown = 0;
 
@@ -231,11 +235,12 @@ show_diag(rname, lbuf, dflag_verbose);
                         // step - format the present byte:
 //                        snprintf(datum_formatted, SIZE__TOKEN, "%02X", pointer_to_bytes[bytes_shown]);
 //                        snprintf(datum_formatted, SIZE__TOKEN, "%.*X", datum_width, (char)pointer_to_bytes[bytes_shown]);  // <- getting '00   55 FFFFFFAA FFFFFFFF 00'
-                        snprintf(datum_formatted, SIZE__TOKEN, "%.*X", datum_width, (pointer_to_bytes[bytes_shown] & 0xff));  // <- getting '
+//                        snprintf(datum_formatted, SIZE__TOKEN, "%.*X", datum_width, (pointer_to_bytes[bytes_shown] & 0xff));
+                        snprintf(datum_formatted, SIZE__TOKEN, "%.*X", datum_width, (pointer_to_bytes[(lines_shown * bytes_per_line + bytes_shown)] & 0xff));
 
                         snprintf(lbuf, SIZE__DIAG_MESSAGE, "bytes shown %d modulus %d gives %d,",
                           bytes_shown, group_every_n_bytes, ( bytes_shown % group_every_n_bytes ));
-                        show_diag(rname, lbuf, dflag_verbose);
+                        show_diag(rname, lbuf, dflag_modulus);
 
                         // step - format space between bytes and byte groups:
 //                        if (( bytes_shown % group_every_n_bytes ) == 0 )
@@ -256,11 +261,13 @@ show_diag(rname, lbuf, dflag_verbose);
                         strncat(lbuf_for_bytes, space_between_data, formatted_line_space_remaining);
 
                         ++bytes_shown;
-                        bytes_remaining = ( count_of_bytes_to_show - bytes_shown );
+//                        bytes_remaining = ( count_of_bytes_to_show - bytes_shown );
+                        bytes_remaining = ( count_of_bytes_to_show - (lines_shown * bytes_per_line + bytes_shown));
                     }
 
                     show_diag(rname, lbuf_for_bytes, dflag_byte_array);
 
+                    ++lines_shown;
                     --lines_remaining;
 
                 } // end WHILE-loop to formwat bytes of array for showing
