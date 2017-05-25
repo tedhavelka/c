@@ -151,13 +151,14 @@
 
 #define SIZE__MSTP_INPUT_BUFFER (1024)
 
-#define ONE_MILLION_MS (1000 * 1000)
+#define ONE_MILLION_MICRO_SECONDS (1000 * 1000)
 #define MILLI_SECONDS_200K (200 * 1000)
 #define MAX_LOOP_CYCLES_TO_EXECUTE (1000)  // as of 2017-04-06 morning was (30) - TMH
 
 // 2017-04-20 - added:
 // #define TIMES_TO_REPEAT_COMMS_LOOP (40)
-#define TIMES_TO_REPEAT_COMMS_LOOP (300)    // 2017-05-08 MON - Ted watching invoke_id values returned by routine tsm_request_invoke_id(),
+// #define TIMES_TO_REPEAT_COMMS_LOOP (300)    // 2017-05-08 MON - Ted watching invoke_id values returned by routine tsm_request_invoke_id(),
+#define TIMES_TO_REPEAT_COMMS_LOOP (10)    // 2017-05-24 WED - Ted limiting communications to ted to compare two queries,
 
 
 
@@ -901,12 +902,13 @@ int comms_test_3(int argc, char** argv)
 //    unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
 //    unsigned int dflag_announce   = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
 
-    unsigned int dflag_verbose    = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
-    unsigned int dflag_comms_loop = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
-    unsigned int dflag_ring_buffer_tests = DIAGNOSTICS_ON ;
-    unsigned int dflag_loop_iterations_remaining = DIAGNOSTICS_ON ;
+    unsigned int dflag_verbose     = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+    unsigned int dflag_blank_lines = DIAGNOSTICS_ON;
 
-    unsigned int dflag_pause = DIAGNOSTICS_ON;
+    unsigned int dflag_comms_loop  = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+    unsigned int dflag_ring_buffer_tests         = DIAGNOSTICS_ON ;
+    unsigned int dflag_loop_iterations_remaining = DIAGNOSTICS_ON ;
+    unsigned int dflag_pause                     = DIAGNOSTICS_ON;
 
     DIAG__SET_ROUTINE_NAME("bacnet-stub comms_test_3()");
 
@@ -986,7 +988,8 @@ int comms_test_3(int argc, char** argv)
     while ( i < TIMES_TO_REPEAT_COMMS_LOOP )
     {
         ++i;
-        blank_line_out(rname, 2);
+//        blank_line_out(rname, 2);
+        blank_line_out_with_options(rname, 2, dflag_blank_lines);
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "--- sending \"Read Request\" attempt %d:   ---", i);
         show_diag(rname, lbuf, dflag_verbose);
 
@@ -1019,7 +1022,14 @@ int comms_test_3(int argc, char** argv)
         Request_Invoke_ID = 0;
 
 
-        if ( i > 2 )
+// 2017-05-23 - Explanation of following IF construct:  second time and
+//  onwards running communications loop, send request to read CO2 PPM
+//  reading from CWLP main board.  First time running this loop we
+//  query the CWLP for the array of BACnet objects (loosely inputs and
+//  outputs) which it supports:
+
+//        if ( i > 2 )
+        if ( i > 5 )
         {
             Target_Device_Object_Instance = 133005;
             Target_Object_Type = 0;
@@ -1037,7 +1047,7 @@ int comms_test_3(int argc, char** argv)
         if ( Target_Object_Type == OBJECT_ANALOG_INPUT )
         {
             show_diag(rname, "pausing a second for easier readings observations . . .", dflag_pause);
-            usleep(1000000);
+            usleep(ONE_MILLION_MICRO_SECONDS);
         }
 
 
@@ -1220,13 +1230,9 @@ int comms_test_3(int argc, char** argv)
 //            snprintf(lbuf, SIZE__DIAG_MESSAGE, "ring buffer holds %d bytes,", ring_buffer_byte_count);
 //            show_diag(rname, lbuf, dflag_ring_buffer_tests);
 
-
 //            address_of_ports_linux_dlmstp_pdu_queue(rname);
         }
          
-
-
-
     } // end 2017-04-19 WHILE-loop to iterate over communcations loop n times
 
 
@@ -1250,7 +1256,7 @@ int main(int argc, char** argv)
 
 
 // 2017-04-12 - moved up near top of file, before function definitions:
-// #define ONE_MILLION_MS (1000 * 1000)
+// #define ONE_MILLION_MICRO_SECONDS (1000 * 1000)
 // #define MILLI_SECONDS_200K (200 * 1000)
 // #define MAX_LOOP_CYCLES_TO_EXECUTE (1000)  // as of 2017-04-06 morning was (30) - TMH
 
@@ -1522,7 +1528,7 @@ if ( 0 )
         show_diag(rname, lbuf, dflag_target_address_summary);
     }
 
-    usleep(ONE_MILLION_MS);
+    usleep(ONE_MILLION_MICRO_SECONDS);
 
 
 
@@ -1726,7 +1732,7 @@ if ( 0 )
 
         time_present = time(NULL);
 
-//        usleep(ONE_MILLION_MS);
+//        usleep(ONE_MILLION_MICRO_SECONDS);
         usleep(100000);
 
         show_diag(rname, "*", dflag_comms_loop);

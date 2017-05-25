@@ -97,6 +97,57 @@ void blank_line_out(const char* caller, unsigned int number_of_blank_lines)
 
 
 
+
+void blank_line_out_with_options(const char* caller, unsigned int number_of_blank_lines, unsigned int option)
+{
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//  2017-05-23 - Ted amending first vesion of routine blank_line_out()
+//   with support for options, with goal that blank line formatting
+//   in diagnostics and tracing output can be easily controlled with
+//   same flags that govern display and formatting of diagnostics
+//   messages shown by routine show_diag() . . .   - TMH
+//
+//   Routine show_diag() formatting options are defined in an
+//   enumeration in diagnostics.h marked by the phrase 
+//   'DIAGNOSTICS OPTIONS ENUMERATED'.  See that header file for
+//   formatting and enabling/disabling flags for Ted's C test library
+//   diagnostics routines.
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    int i;
+
+
+// Return without putting any characters to standard out.  This option
+// supported to make this blank lines routine controllable more akin
+// to routine show_diag() . . .
+
+    if ( option == DIAGNOSTICS_OFF )
+    {
+        return;
+    }
+
+
+    if ( strlen(caller) == 0 )
+    {
+//    * Warn that calling code does not identify itself *
+    }
+
+
+    if ( number_of_blank_lines >= 1 )
+    {
+        for ( i = 0; i < number_of_blank_lines; ++i )
+        {
+            printf("\n");
+        }
+
+    }
+
+} // end routine blank_line_out()
+
+
+
+
 void show_byte_array(
   const char* caller,
   char* pointer_to_bytes,

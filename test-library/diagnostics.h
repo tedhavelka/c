@@ -67,7 +67,7 @@
 //
 //--------------------------------------------------------------------
 
-enum diagnostics_message_formats
+enum diagnostics_message_formats  // DIAGNOSTICS OPTIONS ENUMERATED //
 {
     DIAGNOSTICS__SHOW_MESSAGE_ONLY = 1,
     DIAGNOSTICS__FORMAT_MESSAGE_WITH_COLON_SEPARATOR,
@@ -117,6 +117,8 @@ enum byte_array_display_options
 void show_diag(const char* caller, const char *message, unsigned int format);
 
 void blank_line_out(const char* caller, unsigned int number_of_blank_lines);
+
+void blank_line_out_with_options(const char* caller, unsigned int number_of_blank_lines, unsigned int option);
 
 void show_byte_array(
   const char* caller,
