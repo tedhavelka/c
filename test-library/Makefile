@@ -25,9 +25,13 @@ export PRACTICE_C_LIBRARY_VERSION__MINOR_NUMBER=1
 
 
 
-OBJECT_FILES=diagnostics.o functions-string.o
+CFLAGS=-I$(HOME)/projects/c/test-library
 
-HEADERS=diagnostics.h functions-string.h
+
+
+OBJECT_FILES=diagnostics.o functions-string.o message-board.o
+
+HEADERS=diagnostics.h functions-string.h message-board.h
 
 SHARED_OBJECT_FILE=$(LIBRARY_NAME__BASENAME)-$(PRACTICE_C_LIBRARY_VERSION__MAJOR_NUMBER)p$(PRACTICE_C_LIBRARY_VERSION__MINOR_NUMBER).so
 
