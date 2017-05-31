@@ -140,6 +140,8 @@
 
 #include <diagnostics.h>
 
+#include <message-board.h>
+
 
 
 
@@ -1352,6 +1354,56 @@ int main(int argc, char** argv)
         show_diag(rname, "showing first twenty (20) bytes of Kargs' Handler Transmit Buffer . . .", dflag_verbose);
         show_byte_array(rname, (char*)Handler_Transmit_Buffer, 20, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
     }
+
+
+// - 2017-05-30 TUE -
+
+    if ( 1 )
+    {
+        int routine_status;
+
+        int value_from_message_board = 0;
+
+#define NUMBER_BYTES_TO_SEND (66) 
+
+        show_diag(rname, "TEST - setting 'bytes to send' value on new C test library message board,",
+          dflag_verbose);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "sending byte count value of %d . . .", NUMBER_BYTES_TO_SEND);
+        show_diag(rname, lbuf, dflag_verbose);
+
+        routine_status = message_board_set_value(
+          rname,
+          MESSAGE_BOARD_VALUE__NUMBER_RS485_FRAME_BYTES_TO_SEND, 
+          MESSAGE_BOARD_VALUE__USE_ONCE, 
+          (void*)NUMBER_BYTES_TO_SEND
+        );
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "got back routine status of %d,", routine_status);
+        show_diag(rname, lbuf, dflag_verbose);
+
+
+        show_diag(rname, "TEST - requesting value back, 'number of bytes to send' value . . .",
+          dflag_verbose);
+
+        routine_status = message_board_get_value(
+          rname,
+          MESSAGE_BOARD_VALUE__NUMBER_RS485_FRAME_BYTES_TO_SEND, 
+//          (void*)&value_from_message_board
+          &value_from_message_board
+        );
+
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "got back routine status of %d,", routine_status);
+        show_diag(rname, lbuf, dflag_verbose);
+//        snprintf(lbuf, SIZE__DIAG_MESSAGE, "and got back 'bytes to send' value of %d,", *value_from_message_board);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "and got back 'bytes to send' value of %d,", value_from_message_board);
+        show_diag(rname, lbuf, dflag_verbose);
+
+
+#undef NUMBER_BYTES_TO_SEND
+    }
+
+    return EARLY;
+
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
