@@ -1362,7 +1362,7 @@ int main(int argc, char** argv)
     {
         int routine_status;
 
-        int value_from_message_board = 0;
+        unsigned int value_from_message_board = 0;
 
 #define NUMBER_BYTES_TO_SEND (66) 
 
@@ -1394,7 +1394,14 @@ int main(int argc, char** argv)
 
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "got back routine status of %d,", routine_status);
         show_diag(rname, lbuf, dflag_verbose);
-//        snprintf(lbuf, SIZE__DIAG_MESSAGE, "and got back 'bytes to send' value of %d,", *value_from_message_board);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "and got back 'bytes to send' value of %d,", value_from_message_board);
+        show_diag(rname, lbuf, dflag_verbose);
+
+
+        show_diag(rname, "testing another routine specific to 'number bytes to send' . . .", dflag_verbose);
+        routine_status = from_message_board__number_bytes_to_send(rname, &value_from_message_board);
+        snprintf(lbuf, SIZE__DIAG_MESSAGE, "got back routine status of %d from more specific routine,", routine_status);
+        show_diag(rname, lbuf, dflag_verbose);
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "and got back 'bytes to send' value of %d,", value_from_message_board);
         show_diag(rname, lbuf, dflag_verbose);
 

@@ -52,6 +52,13 @@ unsigned int message_board_get_value(
 );
 
 
+// Following routine returns non-zero value to indicate to caller not
+// to use value from message board:
+
+unsigned int from_message_board__number_bytes_to_send(
+  const char* caller,
+  unsigned int* number_bytes_to_send
+);
 
 
 

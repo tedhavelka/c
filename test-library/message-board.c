@@ -87,7 +87,7 @@ enum message_board_value_mode_of_use
 //======================================================================
 //
 
-unsigned int number_of_bytes_to_send = 0;
+unsigned int number_of_bytes_to_send_via_RS485_Send_Frame = 0;
 
 
 
@@ -163,7 +163,7 @@ unsigned int message_board_set_value(
             snprintf(lbuf, SIZE__DIAG_MESSAGE, "updating 'number of bytes to send' value to %d,", (unsigned int)new_value);
             show_diag(rname, lbuf, dflag_verbose);
 
-            number_of_bytes_to_send = (unsigned int)new_value;
+            number_of_bytes_to_send_via_RS485_Send_Frame = (unsigned int)new_value;
 // 2017-05-26 - mode of use not yet implemented - TMH
             flag_routine_success = 0;
             break;
@@ -227,19 +227,18 @@ unsigned int message_board_get_value(
 // integer, hence in assignment to parameter named present_value we
 // use following C syntax . . .
 //
-            snprintf(lbuf, SIZE__DIAG_MESSAGE, "message board 'number of bytes to send' holds %d,", number_of_bytes_to_send);
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "message board 'number of bytes to send' holds %d,", number_of_bytes_to_send_via_RS485_Send_Frame);
             show_diag(rname, lbuf, dflag_verbose);
 
-//            present_value = (void*)number_of_bytes_to_send;
-//            present_value = number_of_bytes_to_send;                 // warning: assignment makes pointer from integer without a cast [-Wint-conversion]
-//            present_value = (unsigned int)number_of_bytes_to_send;   // warning: assignment makes pointer from integer without a cast [-Wint-conversion]
-//            present_value = (*unsigned int)number_of_bytes_to_send;  // error: expected expression before ‘unsigned’
-            present_value = (unsigned int*)number_of_bytes_to_send;    // . . .
+//            present_value = (void*)number_of_bytes_to_send_via_RS485_Send_Frame;
+//            present_value = number_of_bytes_to_send_via_RS485_Send_Frame;                 // warning: assignment makes pointer from integer without a cast [-Wint-conversion]
+//            present_value = (unsigned int)number_of_bytes_to_send_via_RS485_Send_Frame;   // warning: assignment makes pointer from integer without a cast [-Wint-conversion]
+//            present_value = (*unsigned int)number_of_bytes_to_send_via_RS485_Send_Frame;  // error: expected expression before ‘unsigned’
+            present_value = (unsigned int*)number_of_bytes_to_send_via_RS485_Send_Frame;    // . . .
 
 //            snprintf(lbuf, SIZE__DIAG_MESSAGE, "now setting calling code's 'present value' parameter to %d,", (int)present_value);
             snprintf(lbuf, SIZE__DIAG_MESSAGE, "now setting calling code's 'present value' parameter to %d,", (unsigned int*)present_value);
             show_diag(rname, lbuf, dflag_verbose);
-            show_diag(rname, "zzz", dflag_verbose);
 
 
             flag_routine_success = 0;
@@ -262,6 +261,55 @@ unsigned int message_board_get_value(
 
 } // end routine message_board_get_value()
 
+
+
+
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Following routine returns non-zero value to indicate to caller not
+// to use value from message board:
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//
+
+unsigned int from_message_board__number_bytes_to_send(
+  const char* caller,
+  unsigned int* number_bytes_to_send
+)
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//  PURPOSE:  to return to calling code a posted number of bytes to
+//    send out onto an EIA-485 network.
+//
+//  TO DO:  implement 'mode of use' for this message board value - TMH
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+{
+
+    int routine_status = 0;
+
+    DIAG__SET_ROUTINE_NAME("from_message_board__number_bytes_to_send");
+
+    if ( strlen(caller) == 0 ) { }   // . . . avoid compiler warning of unused parameter,
+
+
+// TO DO:  implement 'mode of use' attribute, so that caller can know
+//  when this value posted to message board is stale or not meant to be
+//  used.  Value one (1) in following IF-test is a place holder for
+//  mode of use test . . .
+
+    if ( 1 )
+    {
+        *number_bytes_to_send = number_of_bytes_to_send_via_RS485_Send_Frame;
+    }
+    else
+    {
+        routine_status = 1;
+    }
+
+
+// On success, return zero to calling code:
+    return routine_status;
+
+} // end routine from_message_board__number_bytes_to_send()
 
 
 
