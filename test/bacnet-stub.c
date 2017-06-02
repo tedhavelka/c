@@ -162,6 +162,9 @@
 // #define TIMES_TO_REPEAT_COMMS_LOOP (300)    // 2017-05-08 MON - Ted watching invoke_id values returned by routine tsm_request_invoke_id(),
 #define TIMES_TO_REPEAT_COMMS_LOOP (10)    // 2017-05-24 WED - Ted limiting communications to ted to compare two queries,
 
+#define NUMBER_BYTES_TO_SEND (10) 
+
+
 
 
 //----------------------------------------------------------------------
@@ -889,6 +892,9 @@ int comms_test_3(int argc, char** argv)
 
     int seconds_passed = 0;
 
+    int routine_status;
+
+
 // diagnostics:
 
     char lbuf[SIZE__DIAG_MESSAGE];
@@ -904,13 +910,14 @@ int comms_test_3(int argc, char** argv)
 //    unsigned int dflag_comms_loop = DIAGNOSTICS_ON;
 //    unsigned int dflag_announce   = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
 
-    unsigned int dflag_verbose     = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
+    unsigned int dflag_verbose     = DIAGNOSTICS_ON;   // ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
     unsigned int dflag_blank_lines = DIAGNOSTICS_ON;
 
     unsigned int dflag_comms_loop  = ( DIAGNOSTICS_ON & routine_scoped_silence_flag );
-    unsigned int dflag_ring_buffer_tests         = DIAGNOSTICS_ON ;
-    unsigned int dflag_loop_iterations_remaining = DIAGNOSTICS_ON ;
+    unsigned int dflag_ring_buffer_tests         = DIAGNOSTICS_ON;
+    unsigned int dflag_loop_iterations_remaining = DIAGNOSTICS_ON;
     unsigned int dflag_pause                     = DIAGNOSTICS_ON;
+    unsigned int dflag_message_board_call        = DIAGNOSTICS_ON;
 
     DIAG__SET_ROUTINE_NAME("bacnet-stub comms_test_3()");
 
@@ -1007,6 +1014,28 @@ int comms_test_3(int argc, char** argv)
 
 //        show_n_bytes_of_global_transfer_buffer(rname, 16);
         show_byte_array(rname, (char*)Handler_Transmit_Buffer, 48, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
+
+
+
+// 2017-06-02 FRI - added by Ted, every five seconds post 'number bytes to send' value to message board:
+
+        if ( i % 5 )
+        {
+            show_diag(rname, "posting value to message board . . .", dflag_message_board_call);
+            routine_status = message_board_set_value(
+              rname,
+              MESSAGE_BOARD_VALUE__NUMBER_RS485_FRAME_BYTES_TO_SEND, 
+              MESSAGE_BOARD_VALUE__USE_ONCE, 
+              (void*)NUMBER_BYTES_TO_SEND
+            );
+
+            if ( routine_status ) { }
+        }
+        else
+        {
+             snprintf(lbuf, SIZE__DIAG_MESSAGE, "zzzzz - loop index i holds %d and (1 %% 5) equals %d,", i, (i % 5));
+             show_diag(rname, lbuf, dflag_verbose);
+        }
 
 
 //
@@ -1364,8 +1393,6 @@ int main(int argc, char** argv)
 
         unsigned int value_from_message_board = 0;
 
-#define NUMBER_BYTES_TO_SEND (66) 
-
         show_diag(rname, "TEST - setting 'bytes to send' value on new C test library message board,",
           dflag_verbose);
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "sending byte count value of %d . . .", NUMBER_BYTES_TO_SEND);
@@ -1405,11 +1432,11 @@ int main(int argc, char** argv)
         snprintf(lbuf, SIZE__DIAG_MESSAGE, "and got back 'bytes to send' value of %d,", value_from_message_board);
         show_diag(rname, lbuf, dflag_verbose);
 
+        routine_status = message_board_set_value(rname, MESSAGE_BOARD_VALUE__NUMBER_RS485_FRAME_BYTES_TO_SEND, MESSAGE_BOARD_VALUE__USE_ONCE, (void*)NUMBER_BYTES_TO_SEND);
 
-#undef NUMBER_BYTES_TO_SEND
     }
 
-    return EARLY;
+//    return EARLY;
 
 
 

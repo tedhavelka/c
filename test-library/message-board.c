@@ -46,6 +46,11 @@
 
 // - SECTION - pound includes
 
+
+#include<stdbool.h>
+
+
+// C test libraries of Ted's:
 #include <message-board.h>
 
 #include <diagnostics.h>
@@ -89,6 +94,7 @@ enum message_board_value_mode_of_use
 
 unsigned int number_of_bytes_to_send_via_RS485_Send_Frame = 0;
 
+bool number_of_bytes_to_send_via_RS485_Send_Frame__value_sent = true;
 
 
 
@@ -152,7 +158,7 @@ unsigned int message_board_set_value(
     snprintf(lbuf, SIZE__DIAG_MESSAGE, "called to update value identified by index %u,", value_identifier);
     show_diag(rname, lbuf, dflag_verbose);
 
-    snprintf(lbuf, SIZE__DIAG_MESSAGE, "and with mode of use (not yet implemented) equal to %u,", value_mode_of_use);
+    snprintf(lbuf, SIZE__DIAG_MESSAGE, "and with mode of use (presently under testing) equal to %u,", value_mode_of_use);
     show_diag(rname, lbuf, dflag_verbose);
 
 
@@ -164,8 +170,15 @@ unsigned int message_board_set_value(
             show_diag(rname, lbuf, dflag_verbose);
 
             number_of_bytes_to_send_via_RS485_Send_Frame = (unsigned int)new_value;
-// 2017-05-26 - mode of use not yet implemented - TMH
+
+// 2017-06-01 - Ted implementing 'mode of use' for this message board value . . .
+            number_of_bytes_to_send_via_RS485_Send_Frame__value_sent = false;
+            snprintf(lbuf, SIZE__DIAG_MESSAGE, "updating 'number of bytes to send' mode to %d,",
+              (unsigned int)number_of_bytes_to_send_via_RS485_Send_Frame__value_sent);
+            show_diag(rname, lbuf, dflag_verbose);
+
             flag_routine_success = 0;
+
             break;
         }
 
@@ -284,6 +297,7 @@ unsigned int from_message_board__number_bytes_to_send(
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 {
 
+
     int routine_status = 0;
 
     DIAG__SET_ROUTINE_NAME("from_message_board__number_bytes_to_send");
@@ -296,9 +310,12 @@ unsigned int from_message_board__number_bytes_to_send(
 //  used.  Value one (1) in following IF-test is a place holder for
 //  mode of use test . . .
 
-    if ( 1 )
+    if ( number_of_bytes_to_send_via_RS485_Send_Frame__value_sent == false  )
     {
         *number_bytes_to_send = number_of_bytes_to_send_via_RS485_Send_Frame;
+
+// Mark this message board variable as sent and spent:
+        number_of_bytes_to_send_via_RS485_Send_Frame__value_sent = true;
     }
     else
     {
