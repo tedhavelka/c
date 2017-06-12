@@ -60,6 +60,9 @@
 //
 //    *  https://www.cs.swarthmore.edu/~newhall/unixhelp/howto_C_libraries.html
 //
+//    *  https://en.wikipedia.org/wiki/Modulo_operation
+//
+//    *  http://embeddedgurus.com/stack-overflow/2011/02/efficient-c-tip-13-use-the-modulus-operator-with-caution/
 //
 //
 //
@@ -159,8 +162,9 @@
 
 // 2017-04-20 - added:
 // #define TIMES_TO_REPEAT_COMMS_LOOP (40)
-// #define TIMES_TO_REPEAT_COMMS_LOOP (300)    // 2017-05-08 MON - Ted watching invoke_id values returned by routine tsm_request_invoke_id(),
-#define TIMES_TO_REPEAT_COMMS_LOOP (10)    // 2017-05-24 WED - Ted limiting communications to ted to compare two queries,
+#define TIMES_TO_REPEAT_COMMS_LOOP (300)    // 2017-05-08 MON - Ted watching invoke_id values returned by routine tsm_request_invoke_id(),
+// #define TIMES_TO_REPEAT_COMMS_LOOP (10)    // 2017-05-24 WED - Ted limiting communications to ted to compare two queries,
+//#define TIMES_TO_REPEAT_COMMS_LOOP (20)    // 2017-06-02 FRI
 
 #define NUMBER_BYTES_TO_SEND (10) 
 
@@ -1016,8 +1020,12 @@ int comms_test_3(int argc, char** argv)
         show_byte_array(rname, (char*)Handler_Transmit_Buffer, 48, BYTE_ARRAY__DISPLAY_FORMAT__16_PER_LINE__GROUPS_OF_FOUR);
 
 
-
-// 2017-06-02 FRI - added by Ted, every five seconds post 'number bytes to send' value to message board:
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// 2017-06-02 FRI - added by Ted, every five seconds post 'number bytes
+//  to send' value to message board:
+//
+//  Reference:  http://embeddedgurus.com/stack-overflow/2011/02/efficient-c-tip-13-use-the-modulus-operator-with-caution/
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
         if ( i % 5 )
         {
